@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Uplift Proof Verification Report v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "checked_at",
+    "ok",
+    "source",
+    "root_sha256",
+    "locked_files",
+    "harness_files",
+    "test_files",
+    "metric_floors",
+    "added_test_files",
+    "authorized_changes",
+    "violations",
+    "changelog"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "checked_at": { "type": "string", "minLength": 10 },
+    "ok": { "type": "boolean" },
+    "source": { "type": "string", "minLength": 1 },
+    "root_sha256": { "type": ["string", "null"] },
+    "locked_files": { "type": "integer", "minimum": 0 },
+    "harness_files": { "type": "integer", "minimum": 0 },
+    "test_files": { "type": "integer", "minimum": 0 },
+    "metric_floors": {
+      "type": ["object", "null"],
+      "properties": {
+        "minUnitTests": { "type": "integer", "minimum": 0 },
+        "minPropertyTests": { "type": "integer", "minimum": 0 },
+        "minArchRules": { "type": "integer", "minimum": 0 },
+        "maxSkippedTests": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "added_test_files": { "type": "array", "items": { "type": "string" } },
+    "authorized_changes": { "type": "array", "items": { "type": "string" } },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "path", "message"]
+      }
+    },
+    "changelog": {
+      "type": "object",
+      "required": ["valid", "count", "head_attestation", "errors"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "count": { "type": "integer", "minimum": 0 },
+        "head_attestation": { "type": ["string", "null"] },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+name: Agentic Uplift Resolve Circuit Breaker
+description: >-
+  Proof-Aware circuit breaker for autonomous issue resolution. Refuses to
+  proceed if the cryptographic proof seal is broken, open agent PRs reach the
+  cap, monthly agentic spend hits budget, or default-branch CI is failing.
+author: Sholto Maud
+
+inputs:
+  token:
+    description: GitHub token with read access to issues, pull requests, and actions.
+    default: ${{ github.token }}
+  max-open-agent-prs:
+    description: Maximum simultaneous open agent pull requests allowed.
+    default: '2'
+  monthly-agentic-budget:
+    description: Optional monthly agentic spend budget cap.
+    default: ''
+  monthly-agentic-spend:
+    description: Optional current month agentic spend.
+    default: ''
+  requested-issue:
+    description: Optional specific open issue number to evaluate.
+    default: ''
+
+outputs:
+  proceed:
+    description: "'true' if autonomous resolution may proceed, 'false' otherwise."
+    value: ${{ steps.gate.outputs.proceed }}
+  reason:
+    description: Machine-readable reason code for the gate decision.
+    value: ${{ steps.gate.outputs.reason }}
+  issue_number:
+    description: Selected issue number when proceed is true.
+    value: ${{ steps.gate.outputs.issue_number }}
+  proof_seal_ok:
+    description: Whether the cryptographic proof seal is intact.
+    value: ${{ steps.gate.outputs.proof_seal_ok }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: '24'
+
+    - name: Evaluate Proof-Aware Circuit Breaker
+      id: gate
+      shell: bash
+      env:
+        UPLIFT_TOKEN: ${{ inputs.token }}
+        MAX_OPEN_AGENT_PRS: ${{ inputs.max-open-agent-prs }}
+        MONTHLY_AGENTIC_BUDGET: ${{ inputs.monthly-agentic-budget }}
+        MONTHLY_AGENTIC_SPEND: ${{ inputs.monthly-agentic-spend }}
+        REQUESTED_ISSUE: ${{ inputs.requested-issue }}
+      run: |
+        node "$GITHUB_ACTION_PATH/../../src/cli.ts" gate \
+          --repo "$GITHUB_WORKSPACE" \
+          --github \
+          --github-output \
+          --json

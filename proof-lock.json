@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "rootSha256": "700bb8c95279b0628759e0ee4685c1a9e37f7c7efee8677fefc39c39822ea51e",
+  "metricFloors": {
+    "minUnitTests": 23,
+    "minPropertyTests": 5,
+    "minArchRules": 9,
+    "maxSkippedTests": 0
+  },
+  "files": [
+    {
+      "path": ".githooks/pre-commit",
+      "zone": "harness",
+      "sha256": "12fb020cfc5d30e7e061b1bd27b0bfa6ac291a263810f4a4eb044320a4fc0d8a"
+    },
+    {
+      "path": ".githooks/pre-push",
+      "zone": "harness",
+      "sha256": "83f3d5c6a88691d0533bbf70ce0a4a629b54551385a1fcf370c5910feaddad8b"
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "zone": "harness",
+      "sha256": "c3d3de33679955b3d0b011b94c929718aefb8e8748739a777969e885ec977e8e"
+    },
+    {
+      "path": ".github/workflows/verify.yml",
+      "zone": "harness",
+      "sha256": "c970d6927e92f7913aa7810bde955f3f04000facb5c3afb4253a15f15ce26dbf"
+    },
+    {
+      "path": "package.json#scripts",
+      "zone": "harness",
+      "sha256": "32bb1494fd981bf614e64042bc0e639b854308fe511b102d912e89d537933106"
+    },
+    {
+      "path": "src/core/arch-check.ts",
+      "zone": "harness",
+      "sha256": "3230d43276897baefaed402ccff6b72c404d83cce7e8a19077058ab6a81ea11f"
+    },
+    {
+      "path": "src/core/check-rules.ts",
+      "zone": "harness",
+      "sha256": "d45daf394e372675bfc4d5e225d839ae152840e3b3a69c809313e25f45ed98e1"
+    },
+    {
+      "path": "src/core/proof-io.ts",
+      "zone": "harness",
+      "sha256": "d7390c187dde53b17998e068e52cd67497bf3dda62900014105040f25cb6e52a"
+    },
+    {
+      "path": "src/domain/proof-verifier.ts",
+      "zone": "harness",
+      "sha256": "af5008c0a72b938d3490a426c673f34855c73f21b9f8e1d773c9eca73b4c8894"
+    },
+    {
+      "path": "tests/lib/property.test.ts",
+      "zone": "tests",
+      "sha256": "bdd881dac3dbbf2fee3c57847cda05d2ff16f613bd0b817cfef90eee95a45e65"
+    },
+    {
+      "path": "tests/lib/property.ts",
+      "zone": "harness",
+      "sha256": "f96bba9c7e0b018766d748c18de964c5a2bfe6919a96e04dc1177571c4bc0897"
+    },
+    {
+      "path": "tests/properties/audit-engine.prop.test.ts",
+      "zone": "tests",
+      "sha256": "614f1e17ab10d77bde6e0919adb85de1bea09a3cb8ae2139d5bdf07b35ce3d87"
+    },
+    {
+      "path": "tests/properties/proof-verifier.prop.test.ts",
+      "zone": "tests",
+      "sha256": "e59c6fe5390a2fc605897fe627a027d72296374dcc5f1e9c3da7d711e2f9ee3d"
+    },
+    {
+      "path": "tests/properties/query-engine.prop.test.ts",
+      "zone": "tests",
+      "sha256": "9985786a5fb1d3d18f6d8a48a04acaf924c832191688211361661ffa89027106"
+    },
+    {
+      "path": "tests/properties/resolve-gate.prop.test.ts",
+      "zone": "tests",
+      "sha256": "b8a07ec92d3a7c9250f85e11cbc3bc08756da7b5a5b8ad14c379ef4ccb0a72c8"
+    },
+    {
+      "path": "tests/unit/arch-check.test.ts",
+      "zone": "tests",
+      "sha256": "0a1a979c7fdd7bfcbfffcee95877863cac55e5860b9ec58aafd38a66b88d2a0b"
+    },
+    {
+      "path": "tests/unit/audit-engine.test.ts",
+      "zone": "tests",
+      "sha256": "4609070acb54a3aa5de7b69be93a95fc2c18e98acaa34b0651befde02076ec92"
+    },
+    {
+      "path": "tests/unit/check-rules.test.ts",
+      "zone": "tests",
+      "sha256": "7c51c36f5d72a9cdeb1e86806534f2e7f086252bd14948a19e5d6153903be76c"
+    },
+    {
+      "path": "tests/unit/cli.test.ts",
+      "zone": "tests",
+      "sha256": "97417a51802077fa733b2acbdeed1c91dc9fd6f25157b3c574af65ae8ce6ed4e"
+    },
+    {
+      "path": "tests/unit/json-schema.test.ts",
+      "zone": "tests",
+      "sha256": "eb0702d9a30e4a75008b39fa62380fc3cc49e5585b947eb440460325daa120f2"
+    },
+    {
+      "path": "tests/unit/proof-verifier.test.ts",
+      "zone": "tests",
+      "sha256": "37559848fdd848f16759b1856f26f80b1aa3aac74195cc58dd04cba66839ebba"
+    },
+    {
+      "path": "tests/unit/query-engine.test.ts",
+      "zone": "tests",
+      "sha256": "a4c4469c04acea333b2a3e40535dd39c5692182f90b22264e626c0d1aa0d78f1"
+    },
+    {
+      "path": "tests/unit/resolve-gate.test.ts",
+      "zone": "tests",
+      "sha256": "022f47e3350b9137e9179f86396e9c809b792d9adfcb7717c5784f70d4f90bac"
+    },
+    {
+      "path": "tsconfig.json",
+      "zone": "harness",
+      "sha256": "e2dd4de342b2394ab9e79031f386adc81dcf96bf08832d805d3a2a32f8b291fa"
+    },
+    {
+      "path": "uplift.config.json",
+      "zone": "harness",
+      "sha256": "cf8dd99204b785af366feafcbf98b1138ced1cf865945d0574548f294c93343e"
+    }
+  ]
+}

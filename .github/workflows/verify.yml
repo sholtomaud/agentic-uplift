@@ -1,0 +1,44 @@
+name: Proof-Based Verification & Tamper Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: 4-Tier Verification & PR Tamper Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Run full 4-tier verification (local seal + static + arch + unit + properties)
+        run: node src/cli.ts verify
+
+      - name: Out-of-band PR Base-Branch Tamper Gate
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          FLAGS=(--base "origin/$BASE_REF")
+          if node -e "const labels = JSON.parse(process.env.PR_LABELS || '[]'); process.exit(labels.includes('allow-test-change') ? 0 : 1)"; then
+            FLAGS+=(--allow-test-change)
+          fi
+          if node -e "const labels = JSON.parse(process.env.PR_LABELS || '[]'); process.exit(labels.includes('allow-harness-change') ? 0 : 1)"; then
+            FLAGS+=(--allow-harness-change)
+          fi
+          node src/cli.ts proof check "${FLAGS[@]}" --json

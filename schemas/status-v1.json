@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Uplift Status Report v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "repository",
+    "mode",
+    "run_url",
+    "summary",
+    "repo",
+    "readiness",
+    "proof",
+    "endpoints"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generated_at": { "type": "string", "minLength": 10 },
+    "repository": { "type": "string", "minLength": 1 },
+    "mode": { "enum": ["local", "github"] },
+    "run_url": { "type": ["string", "null"] },
+    "summary": {
+      "type": "object",
+      "required": [
+        "autonomy",
+        "readiness_score",
+        "proof_seal_ok",
+        "blockers_count",
+        "gate_proceed",
+        "gate_reason"
+      ],
+      "properties": {
+        "autonomy": { "enum": ["not-ready", "supervised", "autonomous-ready"] },
+        "readiness_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "proof_seal_ok": { "type": "boolean" },
+        "blockers_count": { "type": "integer", "minimum": 0 },
+        "gate_proceed": { "type": "boolean" },
+        "gate_reason": { "type": "string" }
+      }
+    },
+    "repo": {
+      "type": "object",
+      "required": [
+        "default_branch",
+        "ecosystems",
+        "languages",
+        "file_count",
+        "test_file_count",
+        "zero_runtime_deps"
+      ],
+      "properties": {
+        "default_branch": { "type": "string" },
+        "ecosystems": { "type": "array", "items": { "type": "string" } },
+        "languages": { "type": "array", "items": { "type": "string" } },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "test_file_count": { "type": "integer", "minimum": 0 },
+        "zero_runtime_deps": { "type": ["boolean", "null"] }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "required": [
+        "ok",
+        "root_sha256",
+        "locked_files",
+        "violations_count",
+        "changelog_valid",
+        "changelog_entries"
+      ],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "root_sha256": { "type": ["string", "null"] },
+        "locked_files": { "type": "integer", "minimum": 0 },
+        "violations_count": { "type": "integer", "minimum": 0 },
+        "changelog_valid": { "type": "boolean" },
+        "changelog_entries": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "required": ["status", "audit", "proof", "gate", "schemas"],
+      "properties": {
+        "status": { "type": "string" },
+        "audit": { "type": "string" },
+        "proof": { "type": "string" },
+        "gate": { "type": "string" },
+        "schemas": {
+          "type": "object",
+          "required": ["status", "audit", "proof", "gate"]
+        }
+      }
+    }
+  }
+}

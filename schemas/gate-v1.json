@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Uplift Resolve Gate Report v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluated_at",
+    "repository",
+    "decision",
+    "constraints"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "evaluated_at": { "type": "string", "minLength": 10 },
+    "repository": { "type": "string", "minLength": 1 },
+    "decision": {
+      "type": "object",
+      "required": ["proceed", "reason", "message", "issue"],
+      "properties": {
+        "proceed": { "type": "boolean" },
+        "reason": {
+          "enum": [
+            "selected",
+            "proof-seal-broken",
+            "open-agent-pr-cap",
+            "agentic-budget-exceeded",
+            "ci-failing-on-main",
+            "already-has-pr",
+            "issue-not-found",
+            "no-eligible-issues"
+          ]
+        },
+        "message": { "type": "string" },
+        "issue": {
+          "type": ["object", "null"],
+          "properties": {
+            "number": { "type": "integer", "minimum": 1 },
+            "title": { "type": "string" },
+            "labels": { "type": "array", "items": { "type": "string" } },
+            "createdAt": { "type": "string" }
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "required": [
+        "proof_seal_ok",
+        "require_proof_seal",
+        "open_agent_prs",
+        "max_open_agent_prs",
+        "ci_failing_now",
+        "agentic_monthly_spend",
+        "agentic_monthly_budget"
+      ],
+      "properties": {
+        "proof_seal_ok": { "type": "boolean" },
+        "require_proof_seal": { "type": "boolean" },
+        "open_agent_prs": { "type": "integer", "minimum": 0 },
+        "max_open_agent_prs": { "type": "integer", "minimum": 0 },
+        "ci_failing_now": { "type": "array", "items": { "type": "string" } },
+        "agentic_monthly_spend": { "type": ["number", "null"] },
+        "agentic_monthly_budget": { "type": ["number", "null"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "agentic-uplift",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Zero-dependency agentic repository uplift, cryptographic proof-lock, SRE observability, and guarded autonomous maintenance platform with first-class JSON queries.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "bin": {
+    "agentic-uplift": "./src/cli.ts"
+  },
+  "scripts": {
+    "verify": "node src/cli.ts verify",
+    "verify:json": "node src/cli.ts verify --json",
+    "verify:fast": "node src/cli.ts verify --fast",
+    "proof:check": "node src/cli.ts proof check",
+    "proof:lock": "node src/cli.ts proof lock",
+    "proof:attest": "node src/cli.ts proof attest",
+    "audit": "node src/cli.ts audit",
+    "audit:json": "node src/cli.ts audit --json",
+    "status:json": "node src/cli.ts status --json",
+    "gate:json": "node src/cli.ts gate --json",
+    "hooks:install": "node src/cli.ts hooks install",
+    "test:unit": "node --test \"tests/lib/**/*.test.ts\" \"tests/unit/**/*.test.ts\"",
+    "test:properties": "node --test \"tests/properties/**/*.prop.test.ts\"",
+    "test": "npm run test:unit && npm run test:properties",
+    "serve": "node src/cli.ts serve"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

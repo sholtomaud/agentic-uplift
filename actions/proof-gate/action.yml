@@ -1,0 +1,43 @@
+name: Agentic Uplift Proof Tamper Gate
+description: >-
+  Language-agnostic Tier-0 cryptographic PR tamper gate. Verifies the working
+  tree against the trusted base branch's proof-lock.json, checks hash-chained
+  PROOF_CHANGELOG.md, blocks test-weakening directives across JS/TS, Python,
+  Go, and Rust, and prevents monotonic metric floor regressions.
+author: Sholto Maud
+
+inputs:
+  base-ref:
+    description: Trusted git base ref to load proof-lock.json from (e.g. origin/main).
+    default: origin/main
+  allow-test-change:
+    description: Set to 'true' when a maintainer applied the allow-test-change label.
+    default: 'false'
+  allow-harness-change:
+    description: Set to 'true' when a maintainer applied the allow-harness-change label.
+    default: 'false'
+  json:
+    description: Emit machine-readable JSON output.
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: '24'
+
+    - name: Run Cryptographic PR Tamper Gate
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base-ref }}
+        ALLOW_TEST: ${{ inputs.allow-test-change }}
+        ALLOW_HARNESS: ${{ inputs.allow-harness-change }}
+        JSON_OUT: ${{ inputs.json }}
+      run: |
+        FLAGS=(--repo "$GITHUB_WORKSPACE" --base "$BASE_REF")
+        if [ "$ALLOW_TEST" = "true" ]; then FLAGS+=(--allow-test-change); fi
+        if [ "$ALLOW_HARNESS" = "true" ]; then FLAGS+=(--allow-harness-change); fi
+        if [ "$JSON_OUT" = "true" ]; then FLAGS+=(--json); fi
+        node "$GITHUB_ACTION_PATH/../../src/cli.ts" proof check "${FLAGS[@]}"

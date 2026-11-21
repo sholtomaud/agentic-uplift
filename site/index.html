@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agentic Uplift — Control Plane & Proof Cockpit</title>
+    <link rel="alternate" type="application/json" title="Status JSON" href="data/status.json" />
+    <link rel="alternate" type="application/json" title="Audit JSON" href="data/audit.json" />
+    <link rel="alternate" type="application/json" title="Proof JSON" href="data/proof.json" />
+    <link rel="alternate" type="application/json" title="Gate JSON" href="data/gate.json" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <uplift-cockpit></uplift-cockpit>
+    <noscript>
+      <main class="noscript">
+        <h1>Agentic Uplift — Machine Endpoints</h1>
+        <p>JavaScript is disabled. Query the versioned JSON endpoints directly:</p>
+        <ul>
+          <li><a href="data/status.json">data/status.json</a></li>
+          <li><a href="data/audit.json">data/audit.json</a></li>
+          <li><a href="data/proof.json">data/proof.json</a></li>
+          <li><a href="data/gate.json">data/gate.json</a></li>
+          <li><a href="llms.txt">llms.txt</a></li>
+        </ul>
+      </main>
+    </noscript>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

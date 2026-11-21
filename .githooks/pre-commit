@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Layer 1 local guardrail (sealed in proof-lock.json Zone A).
+# Blocks LLMs, autonomous agents, and humans from committing untested,
+# failing, or proof-lock-tampered changes.
+#
+# Note: Local hooks are a fail-fast convenience layer; GitHub Actions PR
+# base-branch tamper gating + branch protection remain the unbypassable wall.
+echo "[agentic-uplift] pre-commit: running deterministic verification gate..."
+node src/cli.ts verify --fast

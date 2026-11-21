@@ -1,0 +1,49 @@
+name: Guarded Autonomous Resolution
+
+on:
+  issues:
+    types: [labeled]
+  schedule:
+    - cron: '47 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Optional specific open issue number to resolve
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: agent-resolve
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: github.event_name != 'issues' || github.event.label.name == 'agent-ready'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Evaluate Proof-Aware Circuit Breaker
+        id: gate
+        uses: ./actions/resolve-gate
+        with:
+          max-open-agent-prs: '2'
+          monthly-agentic-budget: '50'
+          requested-issue: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number || '' }}
+
+      - name: Report Gate Decision
+        run: |
+          echo "proceed=${{ steps.gate.outputs.proceed }}"
+          echo "reason=${{ steps.gate.outputs.reason }}"
+          echo "proof_seal_ok=${{ steps.gate.outputs.proof_seal_ok }}"
+          echo "issue_number=${{ steps.gate.outputs.issue_number }}"

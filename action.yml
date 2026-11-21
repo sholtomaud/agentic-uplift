@@ -1,0 +1,66 @@
+name: Agentic Uplift Control Plane
+description: >-
+  Audits repository agentic readiness and proof-lock integrity, collects SRE
+  telemetry, emits versioned JSON APIs (status, audit, proof, gate + schemas +
+  llms.txt) for programmatic agent queries, and deploys a zero-dependency Web
+  Components cockpit to GitHub Pages.
+author: Sholto Maud
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  token:
+    description: GitHub token for reading repository telemetry.
+    default: ${{ github.token }}
+  out-dir:
+    description: Output directory for the JSON API bundle and static cockpit.
+    default: _site
+  deploy-pages:
+    description: Set to true to upload and deploy the output directory to GitHub Pages.
+    default: 'true'
+  agent-logins:
+    description: Extra comma-separated GitHub logins to attribute as AI agents.
+    default: ''
+  monthly-agentic-budget:
+    description: Optional monthly budget cap for autonomous agent spend.
+    default: ''
+
+outputs:
+  site-dir:
+    description: Directory containing the published JSON APIs, schemas, llms.txt, and cockpit.
+    value: ${{ inputs.out-dir }}
+  page-url:
+    description: Deployed GitHub Pages URL (when deploy-pages is true).
+    value: ${{ steps.deploy.outputs.page_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: '24'
+
+    - name: Generate Agentic Uplift JSON APIs & Cockpit
+      shell: bash
+      env:
+        UPLIFT_TOKEN: ${{ inputs.token }}
+        UPLIFT_AGENT_LOGINS: ${{ inputs.agent-logins }}
+        MONTHLY_AGENTIC_BUDGET: ${{ inputs.monthly-agentic-budget }}
+      run: |
+        node "$GITHUB_ACTION_PATH/src/cli.ts" publish \
+          --repo "$GITHUB_WORKSPACE" \
+          --out "${{ inputs.out-dir }}" \
+          --github
+
+    - name: Upload GitHub Pages Artifact
+      if: inputs.deploy-pages == 'true'
+      uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      with:
+        path: ${{ inputs.out-dir }}
+
+    - name: Deploy to GitHub Pages
+      id: deploy
+      if: inputs.deploy-pages == 'true'
+      uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

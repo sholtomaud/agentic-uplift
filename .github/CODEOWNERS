@@ -1,0 +1,12 @@
+# Protect cryptographic proof-lock, verification harness, local git hooks, and CI workflows
+proof-lock.json @sholtomaud
+PROOF_CHANGELOG.md @sholtomaud
+uplift.config.json @sholtomaud
+.githooks/ @sholtomaud
+.github/CODEOWNERS @sholtomaud
+.github/workflows/ @sholtomaud
+src/core/arch-check.ts @sholtomaud
+src/core/check-rules.ts @sholtomaud
+src/core/proof-io.ts @sholtomaud
+src/domain/proof-verifier.ts @sholtomaud
+tests/lib/property.ts @sholtomaud

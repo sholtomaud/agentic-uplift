@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Layer 1 pre-push verification guardrail (sealed in proof-lock.json Zone A).
+# Runs the full deterministic verification pipeline + proof seal check
+# before commits are pushed to remote.
+echo "[agentic-uplift] pre-push: running full verification & proof seal..."
+node src/cli.ts verify

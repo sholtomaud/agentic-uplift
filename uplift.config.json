@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "projectName": "agentic-uplift",
+  "proofLock": {
+    "harnessPaths": [
+      ".github/CODEOWNERS",
+      ".github/workflows/verify.yml",
+      ".githooks/pre-commit",
+      ".githooks/pre-push",
+      "package.json#scripts",
+      "tsconfig.json",
+      "uplift.config.json",
+      "src/core/arch-check.ts",
+      "src/core/check-rules.ts",
+      "src/core/proof-io.ts",
+      "src/domain/proof-verifier.ts",
+      "tests/lib/property.ts"
+    ],
+    "testRoots": ["tests"],
+    "testFilePatterns": [".test.ts", ".prop.test.ts", ".spec.ts"]
+  },
+  "limits": {
+    "securityDays": 7,
+    "bugDays": 30,
+    "featureDays": 180
+  },
+  "gate": {
+    "maxOpenAgentPrs": 2,
+    "requireProofSeal": true
+  }
+}
