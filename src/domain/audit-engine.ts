@@ -110,6 +110,13 @@ function buildBranchRulesetCommand(repository: string, branch: string): string {
         name: `Protect ${branch} for autonomous agents`,
         target: 'branch',
         enforcement: 'active',
+        bypass_actors: [
+          {
+            actor_id: 5,
+            actor_type: 'RepositoryRole',
+            bypass_mode: 'pull_request',
+          },
+        ],
         conditions: {
           ref_name: { include: [`refs/heads/${branch}`], exclude: [] },
         },
