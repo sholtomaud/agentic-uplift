@@ -60,6 +60,26 @@ runs:
       with:
         path: ${{ inputs.out-dir }}
 
+    - name: Wait for GitHub Pages Artifact Indexing
+      if: inputs.deploy-pages == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        for i in 1 2 3 4 5 6 7 8; do
+          count=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?name=github-pages" \
+            | node -e "const d = JSON.parse(require('node:fs').readFileSync(0,'utf8')); console.log(d.total_count || 0);" 2>/dev/null || echo 0)
+          if [ "$count" -ge 1 ]; then
+            echo "Artifact github-pages indexed (count=$count)."
+            exit 0
+          fi
+          echo "Waiting for github-pages artifact index (attempt $i)..."
+          sleep 2
+        done
+
     - name: Deploy to GitHub Pages
       id: deploy
       if: inputs.deploy-pages == 'true'
