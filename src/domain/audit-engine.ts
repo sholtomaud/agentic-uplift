@@ -14,6 +14,7 @@ import {
   type CheckImpact,
   type CheckStatus,
   type GroupReadiness,
+  type ManualUpliftCommand,
   type ReadinessSummary,
   type RepoProfile,
 } from '../shared/audit-types.ts';
@@ -96,7 +97,67 @@ function statusScore(status: CheckStatus): number {
   return 0;
 }
 
-export function runUpliftAudit(profile: RepoProfile): AuditCheck[] {
+function repoSlug(repository: string): string {
+  return repository.includes('/') ? repository : `<owner>/${repository}`;
+}
+
+function buildBranchRulesetCommand(repository: string, branch: string): string {
+  const slug = repoSlug(repository);
+  return [
+    `gh api --method POST repos/${slug}/rulesets --input - <<'JSON'`,
+    JSON.stringify(
+      {
+        name: `Protect ${branch} for autonomous agents`,
+        target: 'branch',
+        enforcement: 'active',
+        conditions: {
+          ref_name: { include: [`refs/heads/${branch}`], exclude: [] },
+        },
+        rules: [
+          { type: 'deletion' },
+          { type: 'non_fast_forward' },
+          {
+            type: 'pull_request',
+            parameters: {
+              required_approving_review_count: 1,
+              dismiss_stale_reviews_on_push: true,
+              require_code_owner_review: true,
+              require_last_push_approval: false,
+              required_review_thread_resolution: true,
+            },
+          },
+          {
+            type: 'required_status_checks',
+            parameters: {
+              strict_required_status_checks_policy: true,
+              required_status_checks: [
+                { context: '4-Tier Verification & PR Tamper Gate' },
+              ],
+            },
+          },
+        ],
+      },
+      null,
+      2
+    ),
+    'JSON',
+  ].join('\n');
+}
+
+function buildTamperLabelsCommand(repository: string): string {
+  const slug = repoSlug(repository);
+  return [
+    `gh label create allow-test-change -R ${slug} --color B60205 --description "Maintainer-approved change to locked tests" --force`,
+    `gh label create allow-harness-change -R ${slug} --color D93F0B --description "Maintainer-approved change to verification harness" --force`,
+    `gh label create agentic-uplift -R ${slug} --color 0E8A16 --description "Automated uplift finding tracked by agentic-uplift" --force`,
+    `gh label create agent-ready -R ${slug} --color 1D76DB --description "Approved by maintainer for guarded autonomous resolution" --force`,
+  ].join('\n');
+}
+
+export function runUpliftAudit(
+  profile: RepoProfile,
+  mode: 'local' | 'github' = 'local'
+): AuditCheck[] {
   const checks: AuditCheck[] = [];
   const prWorkflows = profile.workflows.filter((w) =>
     w.triggers.includes('pull_request')
@@ -215,6 +276,10 @@ export function runUpliftAudit(profile: RepoProfile): AuditCheck[] {
         : [],
   });
 
+  const bothHooksExist = profile.hasPreCommitHook && profile.hasPrePushHook;
+  const hooksSatisfied =
+    bothHooksExist && (mode === 'github' || profile.hooksPathConfigured);
+
   checks.push({
     id: 'git-hooks',
     group: 'Proof integrity',
@@ -222,50 +287,42 @@ export function runUpliftAudit(profile: RepoProfile): AuditCheck[] {
     kind: 'setup',
     impact: 'high',
     blocks_autonomy: false,
-    status:
-      profile.hasPreCommitHook && profile.hasPrePushHook
-        ? profile.hooksPathConfigured
-          ? 'pass'
-          : 'improve'
-        : profile.hasPreCommitHook || profile.hasPrePushHook
-          ? 'improve'
-          : 'missing',
-    evidence:
-      profile.hasPreCommitHook && profile.hasPrePushHook
-        ? profile.hooksPathConfigured
+    status: hooksSatisfied
+      ? 'pass'
+      : profile.hasPreCommitHook || profile.hasPrePushHook
+        ? 'improve'
+        : 'missing',
+    evidence: bothHooksExist
+      ? mode === 'github'
+        ? '.githooks/pre-commit and .githooks/pre-push are tracked and sealed (developers activate locally with `npm run hooks:install`).'
+        : profile.hooksPathConfigured
           ? '.githooks/pre-commit and .githooks/pre-push exist and core.hooksPath is active.'
           : '.githooks/pre-commit and .githooks/pre-push exist, but git core.hooksPath is not set locally.'
-        : 'Tracked .githooks/pre-commit and .githooks/pre-push guardrails are incomplete or missing.',
+      : 'Tracked .githooks/pre-commit and .githooks/pre-push guardrails are incomplete or missing.',
     why: 'Blocks LLMs and developers locally from committing or pushing failing/untested code, saving CI cycles while CI remains the unbypassable boundary.',
-    recommendation:
-      profile.hasPreCommitHook &&
-      profile.hasPrePushHook &&
-      profile.hooksPathConfigured
-        ? ''
-        : 'Track .githooks/pre-commit and .githooks/pre-push (sealed in proof-lock.json) and activate with git config core.hooksPath .githooks.',
+    recommendation: hooksSatisfied
+      ? ''
+      : 'Track .githooks/pre-commit and .githooks/pre-push (sealed in proof-lock.json) and activate with git config core.hooksPath .githooks.',
     verify_command: 'git config --get core.hooksPath',
-    fixes:
-      profile.hasPreCommitHook &&
-      profile.hasPrePushHook &&
-      profile.hooksPathConfigured
-        ? []
-        : [
-            {
-              path: '.githooks/pre-commit',
-              language: 'shell',
-              content: PRE_COMMIT_HOOK_TEMPLATE,
-            },
-            {
-              path: '.githooks/pre-push',
-              language: 'shell',
-              content: PRE_PUSH_HOOK_TEMPLATE,
-            },
-            {
-              path: '',
-              language: 'shell',
-              content: 'git config core.hooksPath .githooks',
-            },
-          ],
+    fixes: hooksSatisfied
+      ? []
+      : [
+          {
+            path: '.githooks/pre-commit',
+            language: 'shell',
+            content: PRE_COMMIT_HOOK_TEMPLATE,
+          },
+          {
+            path: '.githooks/pre-push',
+            language: 'shell',
+            content: PRE_PUSH_HOOK_TEMPLATE,
+          },
+          {
+            path: '',
+            language: 'shell',
+            content: 'git config core.hooksPath .githooks',
+          },
+        ],
   });
 
   checks.push({
@@ -351,6 +408,12 @@ export function runUpliftAudit(profile: RepoProfile): AuditCheck[] {
     fixes: [],
   });
 
+  const branchRulesetCmd = buildBranchRulesetCommand(
+    profile.repository,
+    profile.defaultBranch
+  );
+  const slug = repoSlug(profile.repository);
+
   checks.push({
     id: 'branch-protection',
     group: 'Code and CI',
@@ -366,17 +429,28 @@ export function runUpliftAudit(profile: RepoProfile): AuditCheck[] {
           : 'missing',
     evidence:
       profile.branchProtectionEnabled === null
-        ? 'Branch protection requires GitHub API access (skipped in offline local mode).'
+        ? mode === 'github'
+          ? `Could not read branch rules on ${profile.defaultBranch} (default GITHUB_TOKEN lacks administration:read). Run the gh CLI command below to verify or apply.`
+          : 'Branch protection requires GitHub API access (skipped in offline local mode).'
         : profile.branchProtectionEnabled
           ? `Branch protection is enabled on ${profile.defaultBranch}.`
           : `No branch protection detected on ${profile.defaultBranch}.`,
     why: 'Prevents direct pushes to the default branch and enforces required CI + tamper-gate checks before merge.',
     recommendation:
-      profile.branchProtectionEnabled === false
-        ? `Enable branch protection / ruleset on ${profile.defaultBranch} requiring PR reviews and passing verification checks.`
-        : '',
-    verify_command: 'gh api repos/{owner}/{repo}/branches/main/protection',
-    fixes: [],
+      profile.branchProtectionEnabled === true
+        ? ''
+        : `Apply a branch ruleset on ${profile.defaultBranch} requiring PR reviews, CODEOWNERS approval, and the 4-Tier Verification & PR Tamper Gate check.`,
+    verify_command: `gh api repos/${slug}/rulesets`,
+    fixes:
+      profile.branchProtectionEnabled === true
+        ? []
+        : [
+            {
+              path: '',
+              language: 'shell',
+              content: branchRulesetCmd,
+            },
+          ],
   });
 
   checks.push({
@@ -812,13 +886,102 @@ export function scoreAuditChecks(
   };
 }
 
+export function buildManualUpliftCommands(
+  profile: RepoProfile,
+  checks: readonly AuditCheck[]
+): ManualUpliftCommand[] {
+  const slug = repoSlug(profile.repository);
+  const checkById = new Map(checks.map((c) => [c.id, c]));
+  const commands: ManualUpliftCommand[] = [];
+
+  const branchCheck = checkById.get('branch-protection');
+  commands.push({
+    id: 'branch-rules',
+    title: `Protect ${profile.defaultBranch} with PR review, CODEOWNERS & Tamper Gate`,
+    category: 'github-settings',
+    status:
+      branchCheck?.status === 'pass'
+        ? 'done'
+        : branchCheck?.status === 'missing'
+          ? 'required'
+          : 'recommended',
+    check_id: 'branch-protection',
+    why: 'Makes the CI 4-Tier Verification & PR Tamper Gate an unbypassable merge boundary on GitHub.',
+    command: buildBranchRulesetCommand(
+      profile.repository,
+      profile.defaultBranch
+    ),
+  });
+
+  commands.push({
+    id: 'tamper-labels',
+    title: 'Create tamper-override & autonomous-triage labels',
+    category: 'labels',
+    status: 'recommended',
+    check_id: 'pr-tamper-gate',
+    why: 'Enables maintainer-controlled override labels (allow-test-change, allow-harness-change) and agent issue queues (agentic-uplift, agent-ready).',
+    command: buildTamperLabelsCommand(profile.repository),
+  });
+
+  commands.push({
+    id: 'github-pages',
+    title: 'Enable GitHub Pages (GitHub Actions source) for live cockpit & JSON API',
+    category: 'github-settings',
+    status: 'recommended',
+    check_id: null,
+    why: 'Publishes data/{status,audit,proof,gate}.json, schemas/*-v1.json, llms.txt, and the flight-deck cockpit.',
+    command: `gh api --method POST repos/${slug}/pages -f build_type=workflow || gh api --method PUT repos/${slug}/pages -f build_type=workflow`,
+  });
+
+  const hookCheck = checkById.get('git-hooks');
+  commands.push({
+    id: 'local-hooks',
+    title: 'Activate local pre-commit & pre-push verification hooks on your machine',
+    category: 'local-hooks',
+    status:
+      hookCheck?.status === 'pass' && profile.hooksPathConfigured
+        ? 'done'
+        : 'required',
+    check_id: 'git-hooks',
+    why: 'Blocks LLMs and developers locally from committing or pushing failing or tampered code before CI even runs.',
+    command: 'node src/cli.ts hooks install',
+  });
+
+  const proofCheck = checkById.get('proof-lock');
+  if (!proofCheck || proofCheck.status !== 'pass') {
+    commands.push({
+      id: 'proof-seal',
+      title: 'Generate cryptographic proof-lock.json and attest genesis changelog entry',
+      category: 'proof-seal',
+      status: 'required',
+      check_id: 'proof-lock',
+      why: 'Seals Zone A (verification harness & hooks), Zone B (tests), and Zone C (monotonic test floors).',
+      command:
+        'node src/cli.ts proof lock && node src/cli.ts proof attest --summary "Initial verified seal"',
+    });
+  }
+
+  commands.push({
+    id: 'resolver-secret',
+    title: 'Configure model API key secret for guarded autonomous issue resolution',
+    category: 'secrets',
+    status: 'recommended',
+    check_id: 'guarded-resolve-workflow',
+    why: 'Allows .github/workflows/agent-resolve.yml to resolve agent-ready issues when the Proof-Aware circuit breaker opens.',
+    command: `gh secret set ANTHROPIC_API_KEY -R ${slug}`,
+  });
+
+  return commands;
+}
+
 export function buildAuditReport(
   profile: RepoProfile,
   mode: 'local' | 'github',
   now: Date
 ): AuditReport {
-  const checks = runUpliftAudit(profile);
+  const checks = runUpliftAudit(profile, mode);
   const readiness = scoreAuditChecks(checks);
+  const manual_commands = buildManualUpliftCommands(profile, checks);
   return {
     schema_version: 1,
     generated_at: now.toISOString().replace(/\.\d+Z$/, 'Z'),
@@ -826,6 +989,7 @@ export function buildAuditReport(
     mode,
     readiness,
     checks,
+    manual_commands,
   };
 }
 

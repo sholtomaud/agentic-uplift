@@ -80,6 +80,30 @@
           }
         }
       }
+    },
+    "manual_commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "category", "status", "why", "command"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "category": {
+            "enum": [
+              "github-settings",
+              "labels",
+              "secrets",
+              "local-hooks",
+              "proof-seal"
+            ]
+          },
+          "status": { "enum": ["required", "recommended", "done"] },
+          "check_id": { "type": ["string", "null"] },
+          "why": { "type": "string" },
+          "command": { "type": "string", "minLength": 1 }
+        }
+      }
     }
   }
 }

@@ -70,7 +70,7 @@ export async function collectGitHubTelemetry(
   extraAgentLogins: readonly string[] = [],
   now = new Date()
 ): Promise<GitHubTelemetry> {
-  const [rawIssues, rawPulls, rawRuns, rawReleases, protection] =
+  const [rawIssues, rawPulls, rawRuns, rawReleases, protectionRes] =
     await Promise.all([
       client.rest(`/repos/${repository}/issues?state=all&per_page=100`),
       client.rest(`/repos/${repository}/pulls?state=all&per_page=100`),
@@ -78,7 +78,7 @@ export async function collectGitHubTelemetry(
         `/repos/${repository}/actions/runs?branch=${encodeURIComponent(baseProfile.defaultBranch)}&per_page=50`
       ),
       client.rest(`/repos/${repository}/releases?per_page=30`),
-      client.rest(
+      client.restWithStatus(
         `/repos/${repository}/branches/${encodeURIComponent(baseProfile.defaultBranch)}/protection`
       ),
     ]);
@@ -175,19 +175,30 @@ export async function collectGitHubTelemetry(
     pulls.median_hours_to_merge
   );
 
+  // HTTP 200 -> protected, HTTP 404 -> unprotected, HTTP 403 -> token lacks administration:read (waiting)
+  const branchProtectionEnabled = protectionRes.ok
+    ? true
+    : protectionRes.status === 404
+      ? false
+      : null;
+
+  const hasActivity = pulls.merged + issues.closed > 0;
+  const agentAttributionCount = hasActivity
+    ? pulls.merged_agent_prs +
+      pulls.merged_assisted_prs +
+      issues.closed_by_agent
+    : null;
+
   const enrichedProfile: RepoProfile = {
     ...baseProfile,
     repository,
-    branchProtectionEnabled: protection !== null,
+    branchProtectionEnabled,
     ciPassRate: ci.pass_rate,
     ciFailingNow: ci.failing_workflows,
     closedIssuesCount: issues.closed,
     linkedFixShare:
       issues.closed > 0 ? issues.fix_referenced / issues.closed : null,
-    agentAttributionCount:
-      pulls.merged_agent_prs +
-      pulls.merged_assisted_prs +
-      issues.closed_by_agent,
+    agentAttributionCount,
   };
 
   return {

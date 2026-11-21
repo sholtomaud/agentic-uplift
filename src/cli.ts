@@ -672,6 +672,16 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         const blocker = c.blocks_autonomy && c.status !== 'pass' ? ' [BLOCKER]' : '';
         console.log(`  ${tag} [${c.impact}] ${c.id}${blocker}: ${c.evidence}`);
       }
+      const pending = out.manual_commands.filter((m) => m.status !== 'done');
+      if (pending.length > 0) {
+        console.log('\nManual Uplift Commands (gh CLI / local):');
+        for (const m of pending) {
+          console.log(`\n  [${m.status.toUpperCase()}] ${m.title}`);
+          for (const line of m.command.split('\n')) {
+            console.log(`    ${line}`);
+          }
+        }
+      }
     }
     return 0;
   }

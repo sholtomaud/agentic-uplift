@@ -62,6 +62,23 @@ export interface ReadinessSummary {
   readonly groups: readonly GroupReadiness[];
 }
 
+export type ManualCommandCategory =
+  | 'github-settings'
+  | 'labels'
+  | 'secrets'
+  | 'local-hooks'
+  | 'proof-seal';
+
+export interface ManualUpliftCommand {
+  readonly id: string;
+  readonly title: string;
+  readonly category: ManualCommandCategory;
+  readonly status: 'required' | 'recommended' | 'done';
+  readonly check_id: string | null;
+  readonly why: string;
+  readonly command: string;
+}
+
 export interface AuditReport {
   readonly schema_version: 1;
   readonly generated_at: string;
@@ -69,6 +86,7 @@ export interface AuditReport {
   readonly mode: 'local' | 'github';
   readonly readiness: ReadinessSummary;
   readonly checks: readonly AuditCheck[];
+  readonly manual_commands: readonly ManualUpliftCommand[];
 }
 
 export const AGENT_DOC_TOPICS = [
