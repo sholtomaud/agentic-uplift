@@ -154,7 +154,9 @@ test('buildManualUpliftCommands produces actionable repo-specific gh CLI command
       (c) =>
         c.id === 'branch-rules' &&
         c.command.includes('gh api') &&
-        c.command.includes('sholtomaud/agentic-uplift')
+        c.command.includes('sholtomaud/agentic-uplift') &&
+        c.command.includes('"bypass_actors"') &&
+        c.command.includes('"bypass_mode": "pull_request"')
     )
   );
   assert.ok(
