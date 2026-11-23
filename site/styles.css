@@ -4,6 +4,12 @@
  * warm stone paper light theme + charcoal dark theme, dark-bezel aviation
  * annunciator panel (tiles light only when abnormal), precision 240° SVG
  * instrument dials with threat bands & target bugs, and tabular numerals.
+ *
+ * Mobile-first: base rules target phones (≥ 320px). Layout widens at
+ *   40rem (640px)  tablet
+ *   64rem (1024px) desktop
+ *   90rem (1440px) wide
+ * Only min-width media queries are used, so each step adds to the one below.
  */
 :root {
   color-scheme: light;
@@ -26,6 +32,11 @@
   --series-3: #1baf7a;
   --series-4: #eda100;
   --target: #c026d3;
+  --div-neg: #d03b3b;
+  --div-pos: #2a78d6;
+  --gutter: 16px;
+  --radius: 14px;
+  --tap: 44px;
 
   --good: #0ca30c;
   --warning: #fab219;
@@ -66,6 +77,8 @@
     --series-2: #d95926;
     --series-3: #199e70;
     --series-4: #c98500;
+    --div-neg: #e66767;
+    --div-pos: #3987e5;
   }
 }
 
@@ -93,6 +106,8 @@
   --series-2: #d95926;
   --series-3: #199e70;
   --series-4: #c98500;
+  --div-neg: #e66767;
+  --div-pos: #3987e5;
 }
 
 * {
@@ -102,6 +117,8 @@
 html {
   scroll-behavior: smooth;
   overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -109,9 +126,19 @@ body {
   background: var(--page);
   color: var(--ink);
   font-family: var(--sans);
+  font-size: 1rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+code {
+  overflow-wrap: anywhere;
 }
 
 uplift-cockpit {
@@ -123,7 +150,12 @@ uplift-cockpit {
   font-variant-numeric: tabular-nums;
 }
 
-/* Sticky top navigation bar */
+:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+}
+
+/* ---------- Top bar (phone: brand above a scrollable nav row) ---------- */
 .topbar {
   position: sticky;
   top: 0;
@@ -132,39 +164,41 @@ uplift-cockpit {
   backdrop-filter: blur(10px);
   background: var(--nav-bg);
   border-bottom: 1px solid var(--border);
+  padding-top: env(safe-area-inset-top);
 }
 
 .topbar-inner {
   width: 100%;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 12px 20px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  padding: 10px var(--gutter) 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
 }
 
 .brand {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 6px 10px;
   flex-wrap: wrap;
   min-width: 0;
 }
 
 .brand h1 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 
 .brand-meta {
-  font-size: 0.78rem;
+  flex-basis: 100%;
+  font-size: 0.75rem;
   color: var(--ink-muted);
   font-family: var(--mono);
+  overflow-wrap: anywhere;
 }
 
 .brand-meta a {
@@ -174,40 +208,53 @@ uplift-cockpit {
 
 .nav-links {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 0 var(--gutter);
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-links::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-links a,
 .theme-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--ink-2);
   text-decoration: none;
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid var(--border);
+  background: var(--surface);
   cursor: pointer;
   font-family: var(--sans);
+  white-space: nowrap;
 }
 
 .nav-links a:hover,
 .theme-btn:hover {
   background: var(--surface-2);
   color: var(--ink);
-  border-color: var(--border);
 }
 
+/* ---------- Page shell ---------- */
 .shell {
   width: 100%;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 20px 20px 72px;
+  padding: 14px var(--gutter) calc(56px + env(safe-area-inset-bottom));
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
+  gap: 14px;
 }
 
 .card {
@@ -215,13 +262,13 @@ uplift-cockpit {
   max-width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 18px 20px;
+  padding: 14px;
 }
 
 .eyebrow {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -237,28 +284,43 @@ uplift-cockpit {
   margin-bottom: 14px;
 }
 
+.panel-head > div:first-child {
+  min-width: 0;
+  flex: 1 1 18rem;
+}
+
 .panel-head h2 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1.05rem;
   font-weight: 750;
   letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
 }
 
 .panel-head p {
   margin: 4px 0 0;
   color: var(--ink-2);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
 }
 
-/* Aviation Annunciator Panel — always dark bezel; tiles light only when abnormal */
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--c);
+}
+
+/* ---------- Aviation annunciator (always dark bezel) ---------- */
 .annunciator {
   min-width: 0;
   max-width: 100%;
   display: grid;
-  grid-template-columns: minmax(9.5rem, auto) minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px;
-  border-radius: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius);
   background: #121211;
   color: #c3c2b7;
   box-shadow: var(--shadow);
@@ -266,12 +328,12 @@ uplift-cockpit {
 
 .annunciator-note {
   grid-column: 1 / -1;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #96948d;
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px 8px;
 }
 
 .master {
@@ -279,7 +341,8 @@ uplift-cockpit {
   place-items: center;
   align-content: center;
   gap: 2px;
-  padding: 12px 14px;
+  min-height: var(--tap);
+  padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid #383835;
   background: #1a1a19;
@@ -320,8 +383,8 @@ uplift-cockpit {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -331,17 +394,19 @@ uplift-cockpit {
   display: grid;
   gap: 2px;
   height: 100%;
-  padding: 8px 11px;
+  min-height: var(--tap);
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid #2c2c2a;
   background: #1a1a19;
   color: #75736d;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
 .tile strong {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #96948d;
@@ -364,18 +429,12 @@ uplift-cockpit {
   color: inherit;
 }
 
-@media (max-width: 600px) {
-  .annunciator {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Primary Flight Deck Instrument Row */
+/* ---------- Primary instruments ---------- */
 .deck-row {
   min-width: 0;
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .instrument {
@@ -387,7 +446,7 @@ uplift-cockpit {
 
 .instrument-head {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px 8px;
   align-items: baseline;
 }
@@ -408,14 +467,13 @@ uplift-cockpit {
 }
 
 .better {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--ink-muted);
-  white-space: nowrap;
 }
 
 .dial-wrap {
   position: relative;
-  width: min(230px, 100%);
+  width: min(210px, 100%);
   justify-self: center;
 }
 
@@ -476,14 +534,14 @@ uplift-cockpit {
 }
 
 .readout {
-  font-size: 1.85rem;
+  font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
 }
 
 .readout.boxed {
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   padding: 3px 10px;
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -496,11 +554,43 @@ uplift-cockpit {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 600;
+  text-align: center;
+}
+
+/* Proof seal: a status stamp rather than a gauge (the seal is binary). */
+.seal {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 14px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.seal-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  background: var(--good);
+}
+
+.seal[data-ok='false'] .seal-icon {
+  background: var(--critical);
+}
+
+.seal[data-ok='false'] .readout {
+  color: var(--critical-ink);
 }
 
 .kv-list {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 5px 12px;
   margin: 0;
   padding-top: 8px;
@@ -510,6 +600,7 @@ uplift-cockpit {
 
 .kv-list dt {
   color: var(--ink-muted);
+  min-width: 0;
 }
 
 .kv-list dd {
@@ -517,6 +608,7 @@ uplift-cockpit {
   font-weight: 600;
   font-family: var(--mono);
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .attribution-caveat {
@@ -527,66 +619,190 @@ uplift-cockpit {
   overflow-wrap: anywhere;
 }
 
-/* 6-Group Mini Dials */
-.mini-grid {
+/* ---------- Segmented bar (one whole split into parts) ---------- */
+.segbar-wrap {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.mini-dial-card {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  padding: 12px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  cursor: pointer;
-  color: inherit;
-  font-family: inherit;
-  text-align: center;
-  transition: border-color 0.15s, transform 0.12s;
+.segbar {
+  display: flex;
+  gap: 2px;
+  height: 28px;
+  min-width: 0;
 }
 
-.mini-dial-card:hover,
-.mini-dial-card.active {
-  border-color: var(--series-1);
-  transform: translateY(-1px);
+.seg {
+  display: flex;
+  align-items: center;
+  min-width: 4px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: var(--c);
+  color: #ffffff;
+  font-size: 0.78rem;
+  overflow: hidden;
 }
 
-.mini-dial-card .dial-wrap {
-  width: 112px;
-}
-
-.mini-dial-card .readout {
-  font-size: 1.05rem;
-}
-
-.mini-title {
-  font-size: 0.76rem;
+.seg b {
   font-weight: 700;
-  line-height: 1.25;
 }
 
-.mini-sub {
-  font-size: 0.72rem;
-  color: var(--ink-muted);
+.segbar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.76rem;
+  color: var(--ink-2);
+}
+
+.segbar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.segbar-legend b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.z-a {
+  --c: var(--series-1);
+}
+
+.z-b {
+  --c: var(--series-3);
+}
+
+.st-pass {
+  --c: var(--good);
+}
+
+.st-improve {
+  --c: var(--warning);
+}
+
+.st-improve.seg {
+  color: #0b0b0b;
+}
+
+.st-missing {
+  --c: var(--critical);
+}
+
+.st-waiting {
+  --c: var(--ink-muted);
+}
+
+/* ---------- Pillar meter list (phone: bar under the name) ---------- */
+.meter-list {
+  display: grid;
+  gap: 4px;
+}
+
+.meter-scale {
+  display: none;
+}
+
+.meter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name figure'
+    'bar bar';
+  align-items: center;
+  gap: 6px 12px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.meter-row:hover {
+  background: var(--surface-2);
+}
+
+.meter-row.active {
+  border-color: var(--series-1);
+  background: var(--surface-2);
+}
+
+.meter-name {
+  grid-area: name;
+  font-size: 0.85rem;
+  font-weight: 650;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.meter-bar {
+  grid-area: bar;
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--dial-track);
+}
+
+.meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--series-1);
+}
+
+.meter-fill[data-band='warn'] {
+  background: var(--warning);
+}
+
+.meter-fill[data-band='crit'] {
+  background: var(--critical);
+}
+
+.meter-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+  opacity: 0.55;
+}
+
+.meter-figure {
+  grid-area: figure;
   font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: right;
 }
 
-/* Badges / Pills */
+.meter-figure small {
+  margin-left: 6px;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+/* ---------- Pills ---------- */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 9px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   font-family: var(--mono);
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .pill.pass,
@@ -622,11 +838,11 @@ uplift-cockpit {
   border: 1px solid var(--border);
 }
 
-/* Manual gh CLI Uplift Runbook */
+/* ---------- gh CLI runbook ---------- */
 .runbook-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -636,17 +852,15 @@ uplift-cockpit {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface-2);
-  padding: 14px 16px;
+  padding: 12px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
 .cmd-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-width: 0;
 }
@@ -655,9 +869,9 @@ uplift-cockpit {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
   font-weight: 700;
-  font-size: 0.94rem;
+  font-size: 0.92rem;
   min-width: 0;
 }
 
@@ -676,17 +890,24 @@ pre.code-block {
   color: var(--code-ink);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   overflow: auto;
   font-family: var(--mono);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   line-height: 1.5;
+  -webkit-overflow-scrolling: touch;
+}
+
+pre.code-block code {
+  overflow-wrap: normal;
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-height: 36px;
   background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--border);
@@ -713,7 +934,7 @@ pre.code-block {
   color: var(--good-ink);
 }
 
-/* Audit Check Expandable Cards */
+/* ---------- Audit checks ---------- */
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
@@ -743,11 +964,17 @@ details.check-item[open] {
 details.check-item summary {
   list-style: none;
   cursor: pointer;
-  padding: 12px 14px;
+  min-height: var(--tap);
+  padding: 10px 12px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 6px 10px;
+}
+
+details.check-item summary > :last-child {
+  grid-column: 2;
+  justify-content: flex-start !important;
 }
 
 details.check-item summary::-webkit-details-marker {
@@ -759,23 +986,24 @@ details.check-item summary::-webkit-details-marker {
 }
 
 .check-summary-main strong {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   display: block;
 }
 
 .check-summary-main span {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--ink-2);
+  overflow-wrap: anywhere;
 }
 
 .check-body {
   min-width: 0;
-  padding: 12px 14px 14px;
+  padding: 12px;
   border-top: 1px solid var(--grid);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
-  font-size: 0.86rem;
+  font-size: 0.85rem;
 }
 
 .check-body > div {
@@ -787,23 +1015,24 @@ details.check-item summary::-webkit-details-marker {
   color: var(--ink-2);
 }
 
-/* Agent Query Console */
+/* ---------- Agent query console ---------- */
 .endpoints-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
 .endpoints-bar a {
   text-decoration: none;
   font-family: var(--mono);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--series-1);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 5px 10px;
+  padding: 6px 10px;
+  overflow-wrap: anywhere;
 }
 
 .endpoints-bar a:hover {
@@ -811,20 +1040,22 @@ details.check-item summary::-webkit-details-marker {
 }
 
 .query-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin-bottom: 10px;
 }
 
 .query-row input {
-  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
   background: var(--surface-2);
   color: var(--ink);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 9px 12px;
   font-family: var(--mono);
-  font-size: 0.86rem;
+  font-size: 16px; /* ≥16px stops iOS zooming on focus */
 }
 
 .chips {
@@ -841,14 +1072,20 @@ details.check-item summary::-webkit-details-marker {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--ink-muted);
   font-family: var(--mono);
+  min-width: 0;
+}
+
+.cli-echo > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 footer.foot {
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--ink-muted);
   padding-top: 10px;
 }
@@ -856,10 +1093,10 @@ footer.foot {
 .noscript {
   max-width: 720px;
   margin: 40px auto;
-  padding: 24px;
+  padding: 0 var(--gutter);
 }
 
-/* People vs Agents economics panel */
+/* ---------- People vs Agents economics ---------- */
 .s-people {
   --c: var(--series-1);
 }
@@ -868,30 +1105,22 @@ footer.foot {
   --c: var(--series-2);
 }
 
-.econ .panel-head {
-  flex-wrap: wrap;
-}
-
-.econ-legend {
+.econ-legend,
+.bullet-legend,
+.dv-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
-  font-size: 0.78rem;
+  gap: 4px 14px;
+  font-size: 0.76rem;
   color: var(--ink-2);
 }
 
-.econ-legend span {
+.econ-legend span,
+.bullet-legend span,
+.dv-legend span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.swatch {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  background: var(--c);
 }
 
 .swatch-band {
@@ -901,8 +1130,8 @@ footer.foot {
 
 .econ-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
 }
 
 .econ-cell {
@@ -910,7 +1139,7 @@ footer.foot {
   align-content: start;
   gap: 10px;
   min-width: 0;
-  padding: 14px;
+  padding: 12px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -923,8 +1152,7 @@ footer.foot {
 
 .econ-cell h4 {
   margin: 0;
-  font-size: 0.82rem;
-  text-align: center;
+  font-size: 0.85rem;
 }
 
 .basis {
@@ -932,12 +1160,13 @@ footer.foot {
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-muted);
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .econ-sub {
@@ -946,6 +1175,7 @@ footer.foot {
   color: var(--ink-muted);
 }
 
+/* Range bars (phone: label above the tracks) */
 .hbar-chart {
   display: grid;
   gap: 10px;
@@ -954,13 +1184,16 @@ footer.foot {
 
 .hbar-row {
   display: grid;
-  grid-template-columns: minmax(92px, 34%) 1fr;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
   align-items: center;
 }
 
 .hbar-label {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
   font-size: 0.78rem;
   color: var(--ink-2);
 }
@@ -972,12 +1205,13 @@ footer.foot {
 
 .hbar-tracks {
   display: grid;
-  gap: 2px;
+  gap: 3px;
+  min-width: 0;
 }
 
 .hbar-track {
   display: grid;
-  grid-template-columns: 1fr minmax(64px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(64px, auto);
   gap: 8px;
   align-items: center;
   min-height: 16px;
@@ -1011,7 +1245,7 @@ footer.foot {
 
 .hbar-value {
   font-family: var(--mono);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   color: var(--ink);
   text-align: right;
   white-space: nowrap;
@@ -1025,9 +1259,8 @@ footer.foot {
 .hbar-axis {
   position: relative;
   height: 14px;
-  margin-left: calc(34% + 8px);
   margin-right: 72px;
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   color: var(--ink-muted);
 }
 
@@ -1037,30 +1270,287 @@ footer.foot {
   transform: translateX(-50%);
 }
 
-.econ-dial-pair {
+.hbar-axis span:first-child {
+  transform: none;
+}
+
+/* Budget bullet charts */
+.bullet-stack {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
-.econ-dial .dial-wrap {
-  width: 128px;
-  margin: 0 auto;
+.bullet {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
+.bullet-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.bullet-figure {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.bullet-figure small {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+.bullet-plot {
+  position: relative;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--grid);
+}
+
+.bullet-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.bullet-zone.z-warn {
+  background: color-mix(in srgb, var(--warning) 30%, transparent);
+}
+
+.bullet-zone.z-crit {
+  background: color-mix(in srgb, var(--critical) 30%, transparent);
+}
+
+.bullet-limit {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--ink);
+  border-radius: 2px;
+}
+
+.bullet-bar,
+.bullet-band {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  background: var(--c);
+}
+
+.bullet-bar {
+  left: 0;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+}
+
+.bullet-band {
+  opacity: 0.35;
+  border-radius: 0 4px 4px 0;
+}
+
+.bullet-proj {
+  position: absolute;
+  top: 1px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--target);
+}
+
+.bullet-dot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+
+.bullet-alert {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--critical-ink);
+}
+
+.swatch-solid {
+  background: var(--ink-2);
+}
+
+.swatch-proj {
+  height: 4px;
+  background: var(--target);
+}
+
+.swatch-dot {
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.swatch-limit {
+  width: 3px;
+  background: var(--ink);
+}
+
+/* Compliance dumbbell */
+.db-chart {
+  display: grid;
+  gap: 10px;
+}
+
+.db-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label values'
+    'plot plot';
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.db-label {
+  grid-area: label;
+  font-size: 0.78rem;
+  color: var(--ink-2);
+  min-width: 0;
+}
+
+.db-values {
+  grid-area: values;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.db-values .s-people,
+.db-values .s-agents {
+  border-bottom: 2px solid var(--c);
+}
+
+.db-plot {
+  grid-area: plot;
+  position: relative;
+  height: 14px;
+  margin: 0 7px;
+  background: linear-gradient(var(--grid), var(--grid)) center / 100% 2px no-repeat;
+}
+
+.db-join {
+  position: absolute;
+  top: 6px;
+  height: 2px;
+  background: var(--ink-muted);
+}
+
+.db-dot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+
+.db-axis,
+.dv-axis {
+  position: relative;
+  height: 14px;
+  margin: 0 7px;
+  font-size: 0.62rem;
+  color: var(--ink-muted);
+}
+
+.db-axis span,
+.dv-axis span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.db-axis span:first-child,
+.dv-axis span:first-child {
+  transform: none;
+}
+
+.db-axis span:last-child,
+.dv-axis span:last-child {
+  transform: translateX(-100%);
+}
+
+/* Savings diverging range bar */
+.dv-chart {
+  display: grid;
+  gap: 6px;
+}
+
+.dv-plot {
+  position: relative;
+  height: 16px;
+  margin: 0 7px;
+  background: linear-gradient(var(--grid), var(--grid)) center / 100% 2px no-repeat;
+}
+
+.dv-zero {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--axis);
+}
+
+.dv-seg {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: var(--c);
+}
+
+.dv-seg.dv-neg {
+  border-radius: 4px 0 0 4px;
+}
+
+.dv-seg.dv-pos {
+  border-radius: 0 4px 4px 0;
+}
+
+.dv-neg {
+  --c: var(--div-neg);
+}
+
+.dv-pos {
+  --c: var(--div-pos);
+}
+
+/* Tables */
 .table-scroll {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .econ-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .econ-table th,
 .econ-table td {
-  padding: 5px 6px;
+  padding: 6px;
   border-bottom: 1px solid var(--grid);
   text-align: right;
 }
@@ -1092,6 +1582,9 @@ footer.foot {
 .econ-assumptions summary,
 .econ-tableview summary {
   cursor: pointer;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
   font-size: 0.8rem;
   color: var(--ink-2);
 }
@@ -1100,6 +1593,7 @@ footer.foot {
   margin-top: 14px;
 }
 
+/* Pay-off scatter */
 .payoff-chart {
   width: 100%;
   height: auto;
@@ -1142,19 +1636,248 @@ footer.foot {
   fill: transparent;
 }
 
-@media (max-width: 600px) {
+/* ================= Tablet ≥ 40rem (640px) ================= */
+@media (min-width: 40rem) {
+  :root {
+    --gutter: 20px;
+    --radius: 16px;
+  }
+
+  .topbar-inner {
+    padding-top: 12px;
+    padding-bottom: 10px;
+  }
+
+  .brand-meta {
+    flex-basis: auto;
+  }
+
+  .nav-links {
+    flex-wrap: wrap;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+  }
+
+  .shell {
+    padding-top: 20px;
+    gap: 20px;
+  }
+
+  .card {
+    padding: 18px 20px;
+  }
+
+  .panel-head h2 {
+    font-size: 1.125rem;
+  }
+
+  .annunciator {
+    grid-template-columns: minmax(9.5rem, auto) minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .deck-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deck-row > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .meter-scale {
+    display: grid;
+    grid-template-columns: minmax(9rem, 28%) minmax(0, 1fr) 6.5rem;
+    gap: 12px;
+    padding: 0 10px;
+    height: 16px;
+    font-size: 0.64rem;
+    color: var(--ink-muted);
+  }
+
+  .meter-scale-track {
+    position: relative;
+  }
+
+  .meter-scale-track span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  .meter-row {
+    grid-template-columns: minmax(9rem, 28%) minmax(0, 1fr) 6.5rem;
+    grid-template-areas: 'name bar figure';
+    gap: 12px;
+  }
+
+  .cmd-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .cmd-card {
+    padding: 14px 16px;
+  }
+
+  details.check-item summary {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 12px 14px;
+  }
+
+  details.check-item summary > :last-child {
+    grid-column: auto;
+    justify-content: flex-end !important;
+  }
+
+  .query-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .query-row input {
+    font-size: 0.86rem;
+  }
+
   .econ-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .econ-cell {
+    padding: 14px;
+  }
+
+  .econ-cell.econ-wide {
+    grid-column: 1 / -1;
+  }
+
+  .econ-wide .payoff-chart {
+    max-width: 480px;
+    justify-self: center;
+  }
+
+  .hbar-row {
+    grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .hbar-label {
+    display: grid;
   }
 
   .hbar-axis {
-    margin-right: 72px;
+    margin-left: calc(34% + 8px);
+  }
+
+  .db-row {
+    grid-template-columns: minmax(7rem, 34%) minmax(0, 1fr) auto;
+    grid-template-areas: 'label plot values';
+  }
+
+  .db-axis {
+    margin-left: calc(34% + 17px);
+    margin-right: 7.5rem;
+  }
+
+  .db-axis span:last-child {
+    transform: translateX(-50%);
+  }
+}
+
+/* ================= Desktop ≥ 64rem (1024px) ================= */
+@media (min-width: 64rem) {
+  :root {
+    --gutter: 24px;
+  }
+
+  .topbar-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .tiles {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .deck-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .deck-row > :last-child {
+    grid-column: auto;
+  }
+
+  .dial-wrap {
+    width: min(230px, 100%);
+  }
+
+  .readout {
+    font-size: 1.85rem;
+  }
+}
+
+/* ================= Wide ≥ 90rem (1440px) ================= */
+@media (min-width: 90rem) {
+  .topbar-inner,
+  .shell {
+    max-width: 1480px;
+  }
+
+  .shell {
+    gap: 24px;
+  }
+
+  /* Only the dense economics grid gains a column; 6 cells + the full-width pay-off. */
+  .econ-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Coarse pointers (touch): bigger hit targets */
+@media (pointer: coarse) {
+  .btn,
+  .nav-links a,
+  .theme-btn {
+    min-height: var(--tap);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .econ * {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+@media print {
+  .topbar {
+    position: static;
+  }
+
+  .nav-links,
+  .btn,
+  .theme-btn {
+    display: none;
+  }
+
+  .card,
+  .annunciator {
+    break-inside: avoid;
+    box-shadow: none;
   }
 }

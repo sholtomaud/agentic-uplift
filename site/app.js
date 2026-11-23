@@ -176,30 +176,43 @@ function renderSeriesLegend() {
   ).join('')}<span><i class="swatch swatch-band"></i>Modeled range</span></div>`;
 }
 
-const BUDGET_BANDS = [
-  { from: 0, to: 80, color: 'var(--good)' },
-  { from: 80, to: 95, color: 'var(--warning)' },
-  { from: 95, to: 100, color: 'var(--critical)' },
-];
-
-function renderBudgetDial(title, b, note) {
+/**
+ * Bullet chart for a monthly budget: the spent range as a bar (solid to the
+ * low end, lighter band to the high end), the projected month-end range as a
+ * target-coloured bracket, measured spend as a dot, and the budget as a limit
+ * line with 80% / 95% threshold zones behind the bar.
+ */
+function renderBudgetBullet(title, b, cls, note) {
+  const top = Math.max(1, b.budget ?? 0, b.projected_month_end.high, b.spent.high) * 1.04;
+  const sc = linearScale(top);
+  const lo = sc(b.spent.low);
+  const hi = sc(b.spent.high);
+  const pLo = sc(b.projected_month_end.low);
+  const pHi = sc(b.projected_month_end.high);
   const pct = b.budget ? Math.round((b.spent.high / b.budget) * 100) : null;
-  const projected = b.budget ? Math.round((b.projected_month_end.high / b.budget) * 100) : null;
-  return `<div class="econ-dial">
-      <h4>${escapeHtml(title)}</h4>
-      <div class="dial-wrap">
-        ${renderDialSvg({
-          value: pct,
-          bands: BUDGET_BANDS,
-          target: projected,
-          ticks: [0, 50, 100],
-          label: b.budget ? `${title} ${pct} percent of budget used` : `${title} budget unset`,
-          compact: true,
-        })}
-        <div class="dial-figure">
-          <span class="readout tabular">${pct !== null ? `${pct}%` : 'UNSET'}</span>
-        </div>
+  const over = b.budget !== null && b.projected_month_end.high > b.budget;
+  const zones = b.budget
+    ? `<span class="bullet-zone z-warn" style="left:${sc(b.budget * 0.8).toFixed(2)}%;width:${(sc(b.budget * 0.95) - sc(b.budget * 0.8)).toFixed(2)}%"></span>
+       <span class="bullet-zone z-crit" style="left:${sc(b.budget * 0.95).toFixed(2)}%;width:${(sc(b.budget) - sc(b.budget * 0.95)).toFixed(2)}%"></span>
+       <span class="bullet-limit" style="left:${sc(b.budget).toFixed(2)}%" title="${escapeHtml(`Budget ${fmtUsd(b.budget)}`)}"></span>`
+    : '';
+  const measured =
+    b.measured_spent !== undefined && b.measured_spent !== null
+      ? `<span class="bullet-dot" style="left:${sc(b.measured_spent).toFixed(2)}%" title="${escapeHtml(`Measured spend ${fmtUsd(b.measured_spent)}`)}"></span>`
+      : '';
+  return `<div class="bullet ${cls}">
+      <div class="bullet-head">
+        <h4>${escapeHtml(title)}</h4>
+        <span class="bullet-figure tabular">${pct !== null ? `${pct}%` : 'Budget unset'}${pct !== null ? '<small> of budget, high end</small>' : ''}</span>
       </div>
+      <div class="bullet-plot" role="img" aria-label="${escapeHtml(`${title}: spent ${fmtRange(b.spent, fmtUsd)}, projected month end ${fmtRange(b.projected_month_end, fmtUsd)}, budget ${b.budget !== null ? fmtUsd(b.budget) : 'unset'}`)}">
+        ${zones}
+        <span class="bullet-bar" style="width:${lo.toFixed(2)}%"></span>
+        ${hi > lo ? `<span class="bullet-band" style="left:${lo.toFixed(2)}%;width:${(hi - lo).toFixed(2)}%"></span>` : ''}
+        <span class="bullet-proj" style="left:${pLo.toFixed(2)}%;width:${Math.max(0.5, pHi - pLo).toFixed(2)}%" title="${escapeHtml(`Projected month end ${fmtRange(b.projected_month_end, fmtUsd)}`)}"></span>
+        ${measured}
+      </div>
+      ${over ? '<p class="bullet-alert"><span aria-hidden="true">▲</span> High-end projection exceeds the budget</p>' : ''}
       <dl class="kv-list">
         <dt>Budget / month</dt><dd class="tabular">${b.budget !== null ? fmtUsd(b.budget) : 'unset'}</dd>
         <dt>Spent (modeled)</dt><dd class="tabular">${fmtRange(b.spent, fmtUsd)}</dd>
@@ -208,6 +221,115 @@ function renderBudgetDial(title, b, note) {
         <dt>Day</dt><dd class="tabular">${b.days_elapsed} / ${b.days_in_month}</dd>
       </dl>
       ${note ? `<p class="attribution-caveat">${escapeHtml(note)}</p>` : ''}
+    </div>`;
+}
+
+/**
+ * Dumbbell (paired dot plot) on a shared 0–100% axis: one row per compliance
+ * rule, a People dot and an Agents dot joined by a line, so the gap reads directly.
+ */
+function renderDumbbell(rows, ariaLabel) {
+  const body = rows
+    .map((row) => {
+      const p = row.values.people;
+      const a = row.values.agents;
+      const pv = p ? p.low * 100 : null;
+      const av = a ? a.low * 100 : null;
+      const join =
+        pv !== null && av !== null
+          ? `<span class="db-join" style="left:${Math.min(pv, av).toFixed(2)}%;width:${Math.abs(av - pv).toFixed(2)}%"></span>`
+          : '';
+      const dot = (v, cls, who) =>
+        v === null
+          ? ''
+          : `<span class="db-dot ${cls}" style="left:${v.toFixed(2)}%" title="${escapeHtml(`${who} · ${row.label}: ${Math.round(v)}%`)}"></span>`;
+      return `<div class="db-row" role="listitem">
+          <span class="db-label">${escapeHtml(row.label)}</span>
+          <span class="db-plot">${join}${dot(pv, 's-people', 'People')}${dot(av, 's-agents', 'Agents')}</span>
+          <span class="db-values tabular"><span class="s-people">${fmtRange(p, fmtPct)}</span> · <span class="s-agents">${fmtRange(a, fmtPct)}</span></span>
+        </div>`;
+    })
+    .join('');
+  return `<div class="db-chart" role="list" aria-label="${escapeHtml(ariaLabel)}">${body}
+      <div class="db-axis" aria-hidden="true"><span style="left:0%">0%</span><span style="left:50%">50%</span><span style="left:100%">100%</span></div>
+    </div>`;
+}
+
+/**
+ * Diverging range bar around zero for monthly savings: a negative range end
+ * extends left in the loss hue, a positive end right in the savings hue.
+ */
+function renderSavingsDiverging(r) {
+  const span = Math.max(1, Math.abs(r.low), Math.abs(r.high)) * 1.08;
+  const pos = (v) => 50 + (v / span) * 50;
+  const segs = [];
+  if (r.low < 0) {
+    const to = Math.min(0, r.high);
+    segs.push(`<span class="dv-seg dv-neg" style="left:${pos(r.low).toFixed(2)}%;width:${(pos(to) - pos(r.low)).toFixed(2)}%"></span>`);
+  }
+  if (r.high > 0) {
+    const from = Math.max(0, r.low);
+    segs.push(`<span class="dv-seg dv-pos" style="left:${pos(from).toFixed(2)}%;width:${(pos(r.high) - pos(from)).toFixed(2)}%"></span>`);
+  }
+  return `<div class="dv-chart">
+      <div class="dv-plot" role="img" aria-label="${escapeHtml(`Monthly savings range ${fmtRange(r, fmtUsd)}, centred on zero`)}">
+        <span class="dv-zero"></span>${segs.join('')}
+      </div>
+      <div class="dv-axis" aria-hidden="true">
+        <span style="left:0%">${escapeHtml(fmtUsd(-span))}</span><span style="left:50%">$0</span><span style="left:100%">${escapeHtml(fmtUsd(span))}</span>
+      </div>
+      <div class="dv-legend"><span><i class="swatch dv-neg"></i>Costs more than people</span><span><i class="swatch dv-pos"></i>Saves money</span></div>
+    </div>`;
+}
+
+/**
+ * Tall segmented bar: one whole (e.g. all audit checks) split into ≤ 6 parts.
+ * Each part prints its count when wide enough; a legend names the parts.
+ */
+function renderSegmentedBar(parts, ariaLabel) {
+  const total = parts.reduce((s, p) => s + p.value, 0) || 1;
+  const blocks = parts
+    .filter((p) => p.value > 0)
+    .map((p) => {
+      const share = (p.value / total) * 100;
+      return `<span class="seg ${p.cls}" style="flex-grow:${p.value}" title="${escapeHtml(`${p.label}: ${p.value} (${Math.round(share)}%)`)}">${share >= 8 ? `<b class="tabular">${p.value}</b>` : ''}</span>`;
+    })
+    .join('');
+  const legend = parts
+    .map((p) => {
+      // The legend repeats a count only when its block is too narrow to print it.
+      const printed = p.value > 0 && (p.value / total) * 100 >= 8;
+      return `<span><i class="swatch ${p.cls}"></i>${escapeHtml(p.label)}${printed ? '' : ` <b class="tabular">${p.value}</b>`}</span>`;
+    })
+    .join('');
+  return `<div class="segbar-wrap">
+      <div class="segbar" role="img" aria-label="${escapeHtml(`${ariaLabel}: ${parts.map((p) => `${p.label} ${p.value}`).join(', ')}`)}">${blocks}</div>
+      <div class="segbar-legend">${legend}</div>
+    </div>`;
+}
+
+/**
+ * Meter list: one row per audit pillar — name, a bar on a shared 0–100% axis
+ * with the supervised (50) and autonomous (85) thresholds marked, and the score.
+ * Rows are buttons that filter the audit checks.
+ */
+function renderPillarMeters(groups, selected) {
+  return `<div class="meter-list">
+      <div class="meter-scale" aria-hidden="true">
+        <span></span>
+        <span class="meter-scale-track"><span style="left:50%">50 supervised</span><span style="left:85%">85 autonomous</span></span>
+        <span></span>
+      </div>
+      ${groups
+        .map((g) => {
+          const band = g.score >= 85 ? 'good' : g.score >= 50 ? 'warn' : 'crit';
+          return `<button type="button" class="meter-row ${selected === g.group ? 'active' : ''}" data-group="${escapeHtml(g.group)}" aria-pressed="${selected === g.group}" aria-label="${escapeHtml(`${g.group}: ${g.score} percent, ${g.passed} of ${g.total} passed. Filter checks.`)}">
+            <span class="meter-name">${escapeHtml(g.group)}</span>
+            <span class="meter-bar"><span class="meter-fill" data-band="${band}" style="width:${Math.max(0, Math.min(100, g.score))}%"></span><i class="meter-mark" style="left:50%"></i><i class="meter-mark" style="left:85%"></i></span>
+            <span class="meter-figure tabular">${g.score}%<small>${g.passed}/${g.total}</small></span>
+          </button>`;
+        })
+        .join('')}
     </div>`;
 }
 
@@ -335,11 +457,17 @@ function renderEconomicsPanel(econ) {
           })}
         </article>
 
-        <article class="econ-cell econ-dials">
+        <article class="econ-cell econ-budgets">
           <h3>Fuel: monthly budgets <span class="basis">modeled</span></h3>
-          <div class="econ-dial-pair">
-            ${renderBudgetDial('Human', budgets.human, '')}
-            ${renderBudgetDial('Agentic', budgets.agentic, 'The resolve gate pauses on measured spend only.')}
+          <div class="bullet-legend">
+            <span><i class="swatch swatch-solid"></i>Spent (low–high)</span>
+            <span><i class="swatch swatch-proj"></i>Projected month end</span>
+            <span><i class="swatch swatch-dot"></i>Measured</span>
+            <span><i class="swatch swatch-limit"></i>Budget</span>
+          </div>
+          <div class="bullet-stack">
+            ${renderBudgetBullet('Human', budgets.human, 's-people', '')}
+            ${renderBudgetBullet('Agentic', budgets.agentic, 's-agents', 'The resolve gate pauses on measured spend only.')}
           </div>
         </article>
 
@@ -363,12 +491,7 @@ function renderEconomicsPanel(econ) {
         <article class="econ-cell">
           <h3>Process compliance <span class="basis">measured</span></h3>
           <p class="econ-sub">Share of merged PRs: ${compliance.people.prs} by people, ${compliance.agents.prs} by agents.</p>
-          ${renderRangeBars({
-            rows: complianceRows,
-            scale: linearScale(1),
-            format: fmtPct,
-            ariaLabel: 'Process compliance shares, people vs agents',
-          })}
+          ${renderDumbbell(complianceRows, 'Process compliance shares, people vs agents')}
         </article>
 
         <article class="econ-cell">
@@ -388,6 +511,7 @@ function renderEconomicsPanel(econ) {
               .join('')}
           </div>
           <p class="econ-headline"><span class="readout tabular">${escapeHtml(fmtRange(monthly, fmtUsd))}</span> saved / month</p>
+          ${renderSavingsDiverging(monthly)}
           <details class="econ-assumptions">
             <summary>Assumptions</summary>
             <dl class="kv-list">
@@ -402,7 +526,7 @@ function renderEconomicsPanel(econ) {
           </details>
         </article>
 
-        <article class="econ-cell">
+        <article class="econ-cell econ-wide">
           <h3>Uplift pay-off <span class="basis">modeled savings</span></h3>
           <p class="econ-sub">One point per publish: does readiness buy savings? Whiskers show the modeled range.</p>
           ${renderPayoffSvg(econ.payoff)}
@@ -659,7 +783,6 @@ class UpliftCockpit extends HTMLElement {
       status.ci && status.ci.pass_rate !== null
         ? Math.round(status.ci.pass_rate * 100)
         : null;
-    const proofPct = proof.ok ? (proof.changelog.valid ? 100 : 85) : 0;
 
     const visibleChecks = audit.checks.filter((c) => {
       if (this.onlyNonPassing && c.status === 'pass') return false;
@@ -780,18 +903,18 @@ class UpliftCockpit extends HTMLElement {
               <span class="better">Tier-0 Tamper Integrity</span>
               <p>SHA-256 lock across harness (Zone A), tests (Zone B) & floors (Zone C).</p>
             </div>
-            <div class="dial-wrap">
-              ${renderDialSvg({
-                value: proofPct,
-                bands: HEALTH_BANDS,
-                ticks: [0, 50, 100],
-                label: `Proof seal ${proof.ok ? 'intact' : 'broken'}`,
-              })}
-              <div class="dial-figure">
-                <span class="readout boxed tabular">${proof.ok ? 'INTACT' : 'BROKEN'}</span>
-                <span class="readout-unit">${proof.locked_files} sealed files</span>
-              </div>
+            <div class="seal" data-ok="${proof.ok ? 'true' : 'false'}">
+              <span class="seal-icon" aria-hidden="true">${proof.ok ? '✓' : '✕'}</span>
+              <span class="readout tabular">${proof.ok ? 'INTACT' : 'BROKEN'}</span>
+              <span class="readout-unit">${proof.locked_files} sealed files · ${proof.violations.length} violations</span>
             </div>
+            ${renderSegmentedBar(
+              [
+                { label: 'Zone A harness', value: proof.harness_files, cls: 'z-a' },
+                { label: 'Zone B tests', value: proof.test_files, cls: 'z-b' },
+              ],
+              'Sealed files by zone'
+            )}
             <dl class="kv-list">
               <dt>Zone A (harness + hooks)</dt><dd class="tabular">${proof.harness_files} files</dd>
               <dt>Zone B (locked tests)</dt><dd class="tabular">${proof.test_files} files</dd>
@@ -837,32 +960,11 @@ class UpliftCockpit extends HTMLElement {
             <div>
               <div class="eyebrow">Pillar Breakdown</div>
               <h2>Readiness by Audit Group</h2>
-              <p>Click any pillar dial to filter the audit checks below.</p>
+              <p>Tap a pillar to filter the audit checks below. Marks show the supervised and autonomous thresholds.</p>
             </div>
             ${this.selectedGroup ? `<button id="clear-group" class="btn" type="button">Clear filter: ${escapeHtml(this.selectedGroup)} ×</button>` : ''}
           </div>
-          <div class="mini-grid">
-            ${audit.readiness.groups
-              .map(
-                (g) => `
-              <button type="button" class="mini-dial-card ${this.selectedGroup === g.group ? 'active' : ''}" data-group="${escapeHtml(g.group)}">
-                <div class="dial-wrap">
-                  ${renderDialSvg({
-                    value: g.score,
-                    bands: READINESS_BANDS,
-                    label: `${g.group} ${g.score} percent`,
-                    compact: true,
-                  })}
-                  <div class="dial-figure">
-                    <span class="readout tabular">${g.score}%</span>
-                  </div>
-                </div>
-                <span class="mini-title">${escapeHtml(g.group)}</span>
-                <span class="mini-sub">${g.passed}/${g.total} passed</span>
-              </button>`
-              )
-              .join('')}
-          </div>
+          ${renderPillarMeters(audit.readiness.groups, this.selectedGroup)}
         </section>
 
         ${renderEconomicsPanel(economics)}
@@ -914,6 +1016,15 @@ class UpliftCockpit extends HTMLElement {
               <button id="toggle-nonpass" class="btn" type="button">${this.onlyNonPassing ? 'Show all checks' : 'Show non-passing only'}</button>
             </div>
           </div>
+          ${renderSegmentedBar(
+            [
+              { label: 'Pass', value: audit.readiness.passed, cls: 'st-pass' },
+              { label: 'Improve', value: audit.readiness.improve, cls: 'st-improve' },
+              { label: 'Missing', value: audit.readiness.missing, cls: 'st-missing' },
+              { label: 'Waiting on history', value: audit.readiness.waiting, cls: 'st-waiting' },
+            ],
+            'Audit checks by status'
+          )}
           <div class="check-list">
             ${visibleChecks
               .map(
@@ -1031,7 +1142,7 @@ class UpliftCockpit extends HTMLElement {
       });
     }
 
-    for (const card of this.querySelectorAll('.mini-dial-card')) {
+    for (const card of this.querySelectorAll('.meter-row')) {
       card.addEventListener('click', () => {
         const group = card.getAttribute('data-group');
         this.selectedGroup = this.selectedGroup === group ? null : group;
