@@ -57,6 +57,19 @@ live separately in [`PROOF_CHANGELOG.md`](./PROOF_CHANGELOG.md).
 
 ### Changed
 
+- **Mobile-first cockpit**: `site/styles.css` now starts from phone
+  layouts and widens at 40rem (tablet), 64rem (desktop) and 90rem (wide),
+  using only `min-width` queries. Touch targets are at least 44px on coarse
+  pointers, the nav scrolls sideways on phones, safe-area insets are
+  respected, and the economics grid goes 1 → 2 → 3 columns.
+- **Chart forms matched to the data**: pillar readiness is a meter list with
+  the supervised/autonomous thresholds marked (was six mini dials); the proof
+  seal is a status stamp with a segmented bar of sealed files by zone (was a
+  gauge of a binary state); audit checks gain a segmented status bar; monthly
+  budgets are bullet charts with spent, projected, measured and limit marks
+  (were dials); process compliance is a People-vs-Agents dumbbell; monthly
+  savings gets a diverging bar centred on $0.
+
 - The resolve gate's agentic spend now defaults to **measured** spend
   (reported token usage and CI minutes this month) in `--github` mode when
   `MONTHLY_AGENTIC_SPEND` is not set.

@@ -1,13 +1,15 @@
 /**
  * Cockpit visual snapshots against the frozen fixture in visual/fixture/data.
- * Desktop (1024) and phone (390), light and dark, with the sticky top bar
+ * Phone (390), tablet (768), desktop (1024) and wide (1440), light and dark, with the sticky top bar
  * released so full-page captures are stable.
  */
 import { expect, test } from '@playwright/test';
 
 const VIEWPORTS = [
-  { name: 'desktop', width: 1024, height: 900 },
   { name: 'phone', width: 390, height: 844 },
+  { name: 'tablet', width: 768, height: 1024 },
+  { name: 'desktop', width: 1024, height: 900 },
+  { name: 'wide', width: 1440, height: 900 },
 ] as const;
 
 const SECTIONS = ['#flight-deck', '#economics', '#manual-uplift', '#audit-checks', '#agent-api'] as const;
