@@ -116,6 +116,22 @@ export function splitSteps(jobText: string): string[] {
   return steps;
 }
 
+function readJobDisplayName(jobText: string): string | null {
+  const lines = jobText.split('\n');
+  const first = lines.find(isContent);
+  if (!first) return null;
+  const propIndent = indentOf(first);
+  for (const line of lines) {
+    if (!isContent(line) || indentOf(line) !== propIndent) continue;
+    const match = line.match(/^\s*name\s*:\s*(.+?)\s*$/);
+    if (match) {
+      const value = match[1].replace(/^(['"])(.*)\1$/, '$2');
+      return value.includes('${{') ? null : value;
+    }
+  }
+  return null;
+}
+
 function jobPushes(text: string, header: string): boolean {
   const scope = `${header}\n${text}`;
   return (
@@ -146,6 +162,7 @@ export function summarizeWorkflowJobs(content: string): WorkflowJobSummary[] {
       );
     return {
       name: job.name,
+      checkName: readJobDisplayName(job.text) ?? job.name,
       usesSecrets: headerSecrets || referencesRepositorySecrets(job.text),
       usesAgentApiKey,
       isAgentJob: AGENT_ACTION_PATTERN.test(job.text) || usesAgentApiKey,

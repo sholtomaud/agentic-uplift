@@ -106,7 +106,10 @@ export type AgentDocTopic = (typeof AGENT_DOC_TOPICS)[number];
 
 /** Per-job supply-chain signals. Booleans only: secret names are never recorded. */
 export interface WorkflowJobSummary {
+  /** Job id (key under `jobs:`). */
   readonly name: string;
+  /** Status-check context GitHub reports for this job (`name:` or the job id). */
+  readonly checkName: string;
   /** References repository secrets other than GITHUB_TOKEN, or `secrets: inherit`. */
   readonly usesSecrets: boolean;
   /** Holds a coding-agent / LLM provider API key. */

@@ -28,7 +28,12 @@ const PINNED_ACTIONS = {
     'actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0',
   socketFirewall:
     'SocketDev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2',
+  proofGate:
+    'sholtomaud/agentic-uplift/actions/proof-gate@998da747e95cc0d2afc47dbb71372e136517c474 # main (2026-11-21)',
 } as const;
+
+/** Check-run name of the job emitted by the proof-gate workflow fix. */
+const PROOF_GATE_CHECK_NAME = 'Proof Tamper Gate';
 
 /** Ecosystems Socket Firewall (`sfw`) can screen at install time. */
 const SOCKET_FIREWALL_ECOSYSTEMS: readonly string[] = ['npm', 'python', 'cargo'];
@@ -79,12 +84,13 @@ permissions:
 
 jobs:
   proof-gate:
+    name: ${PROOF_GATE_CHECK_NAME}
     runs-on: ubuntu-latest
     steps:
       - uses: ${PINNED_ACTIONS.checkout}
         with:
           persist-credentials: false
-      - uses: sholtomaud/agentic-uplift/actions/proof-gate@v1
+      - uses: ${PINNED_ACTIONS.proofGate}
         with:
           base-ref: origin/\${{ github.base_ref }}
 `;
@@ -114,7 +120,25 @@ function repoSlug(repository: string): string {
   return repository.includes('/') ? repository : `<owner>/${repository}`;
 }
 
-function buildBranchRulesetCommand(repository: string, branch: string): string {
+/**
+ * Status-check contexts the branch ruleset should require: the check names of
+ * jobs in pull_request proof-gate workflows, or the name the proof-gate
+ * workflow fix will create when none exist yet.
+ */
+export function requiredStatusCheckNames(profile: RepoProfile): string[] {
+  const names = new Set<string>();
+  for (const w of profile.workflows) {
+    if (!w.hasProofGate || !w.triggers.includes('pull_request')) continue;
+    for (const job of w.jobs ?? []) names.add(job.checkName || job.name);
+  }
+  return names.size > 0 ? [...names] : [PROOF_GATE_CHECK_NAME];
+}
+
+function buildBranchRulesetCommand(
+  repository: string,
+  branch: string,
+  requiredChecks: readonly string[]
+): string {
   const slug = repoSlug(repository);
   return [
     `gh api --method POST repos/${slug}/rulesets --input - <<'JSON'`,
@@ -150,9 +174,9 @@ function buildBranchRulesetCommand(repository: string, branch: string): string {
             type: 'required_status_checks',
             parameters: {
               strict_required_status_checks_policy: true,
-              required_status_checks: [
-                { context: '4-Tier Verification & PR Tamper Gate' },
-              ],
+              required_status_checks: requiredChecks.map((context) => ({
+                context,
+              })),
             },
           },
         ],
@@ -428,9 +452,11 @@ export function runUpliftAudit(
     fixes: [],
   });
 
+  const requiredChecks = requiredStatusCheckNames(profile);
   const branchRulesetCmd = buildBranchRulesetCommand(
     profile.repository,
-    profile.defaultBranch
+    profile.defaultBranch,
+    requiredChecks
   );
   const slug = repoSlug(profile.repository);
 
@@ -459,7 +485,7 @@ export function runUpliftAudit(
     recommendation:
       profile.branchProtectionEnabled === true
         ? ''
-        : `Apply a branch ruleset on ${profile.defaultBranch} requiring PR reviews, CODEOWNERS approval, and the 4-Tier Verification & PR Tamper Gate check.`,
+        : `Apply a branch ruleset on ${profile.defaultBranch} requiring PR reviews, CODEOWNERS approval, and the ${requiredChecks.join(', ')} check(s).`,
     verify_command: `gh api repos/${slug}/rulesets`,
     fixes:
       profile.branchProtectionEnabled === true
@@ -532,8 +558,18 @@ export function runUpliftAudit(
                     '.githooks/pre-commit',
                     '.githooks/pre-push',
                   ],
-                  testRoots: ['tests'],
-                  testFilePatterns: ['.test.ts', '.spec.ts', '_test.go', '_test.py'],
+                  // Superset of the scanner defaults so adopting the config never narrows test discovery.
+                  testRoots: ['tests', 'test', 'src', 'e2e'],
+                  testFilePatterns: [
+                    '.test.ts',
+                    '.prop.test.ts',
+                    '.spec.ts',
+                    '.test.js',
+                    '.spec.js',
+                    '_test.py',
+                    '_test.go',
+                    '_test.rs',
+                  ],
                 },
                 limits: { securityDays: 7, bugDays: 30, featureDays: 180 },
                 gate: { maxOpenAgentPrs: 2, requireProofSeal: true },
@@ -1098,10 +1134,11 @@ export function buildManualUpliftCommands(
           ? 'required'
           : 'recommended',
     check_id: 'branch-protection',
-    why: 'Makes the CI 4-Tier Verification & PR Tamper Gate an unbypassable merge boundary on GitHub.',
+    why: 'Makes the CI verification & PR tamper gate checks an unbypassable merge boundary on GitHub.',
     command: buildBranchRulesetCommand(
       profile.repository,
-      profile.defaultBranch
+      profile.defaultBranch,
+      requiredStatusCheckNames(profile)
     ),
   });
 

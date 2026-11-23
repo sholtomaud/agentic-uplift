@@ -13,6 +13,7 @@ const CHECKOUT = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1';
 function job(overrides: Partial<WorkflowJobSummary> = {}): WorkflowJobSummary {
   return {
     name: 'build',
+    checkName: 'build',
     usesSecrets: false,
     usesAgentApiKey: false,
     isAgentJob: false,
