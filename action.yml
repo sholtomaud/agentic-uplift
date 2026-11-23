@@ -1,7 +1,7 @@
 name: Agentic Uplift Control Plane
 description: >-
   Audits repository agentic readiness and proof-lock integrity, collects SRE
-  telemetry, emits versioned JSON APIs (status, audit, proof, gate + schemas +
+  telemetry, emits versioned JSON APIs (status, audit, proof, gate, economics + schemas +
   llms.txt) for programmatic agent queries, and deploys a zero-dependency Web
   Components cockpit to GitHub Pages.
 author: Sholto Maud
@@ -24,6 +24,18 @@ inputs:
     default: ''
   monthly-agentic-budget:
     description: Optional monthly budget cap for autonomous agent spend.
+    default: ''
+  monthly-human-budget:
+    description: Optional monthly budget (USD) for human maintainer time, shown as the human fuel dial.
+    default: ''
+  human-hourly-rate:
+    description: Optional loaded hourly rate (USD) for people; defaults to 100 or uplift.config.json costs.humanHourlyRate.
+    default: ''
+  copilot-seats:
+    description: Optional number of GitHub Copilot seats to amortize over agent-resolved issues.
+    default: ''
+  agent-model:
+    description: Optional model id used to price agent work when a PR reports no Agent-Usage line.
     default: ''
 
 outputs:
@@ -48,6 +60,10 @@ runs:
         UPLIFT_TOKEN: ${{ inputs.token }}
         UPLIFT_AGENT_LOGINS: ${{ inputs.agent-logins }}
         MONTHLY_AGENTIC_BUDGET: ${{ inputs.monthly-agentic-budget }}
+        MONTHLY_HUMAN_BUDGET: ${{ inputs.monthly-human-budget }}
+        HUMAN_HOURLY_RATE: ${{ inputs.human-hourly-rate }}
+        COPILOT_SEATS: ${{ inputs.copilot-seats }}
+        AGENT_MODEL: ${{ inputs.agent-model }}
       run: |
         node "$GITHUB_ACTION_PATH/src/cli.ts" publish \
           --repo "$GITHUB_WORKSPACE" \

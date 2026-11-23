@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rootSha256": "cead0392e20307e3969d62a953e125f26a03125b37c3a8cde32fb5c8810e3c6b",
+  "rootSha256": "8afd10cd78168de741273115fbb5e370d33cd0fa609863df619cae585b30d743",
   "metricFloors": {
-    "minUnitTests": 68,
-    "minPropertyTests": 8,
+    "minUnitTests": 84,
+    "minPropertyTests": 9,
     "minArchRules": 9,
     "maxSkippedTests": 0
   },
@@ -74,6 +74,11 @@
       "sha256": "614f1e17ab10d77bde6e0919adb85de1bea09a3cb8ae2139d5bdf07b35ce3d87"
     },
     {
+      "path": "tests/properties/economics.prop.test.ts",
+      "zone": "tests",
+      "sha256": "66ced50d054e14fdd0dd6e813e24b845426db3507df75ef01f2d52f01544c13a"
+    },
+    {
       "path": "tests/properties/proof-verifier.prop.test.ts",
       "zone": "tests",
       "sha256": "e59c6fe5390a2fc605897fe627a027d72296374dcc5f1e9c3da7d711e2f9ee3d"
@@ -132,6 +137,11 @@
       "path": "tests/unit/cli.test.ts",
       "zone": "tests",
       "sha256": "97417a51802077fa733b2acbdeed1c91dc9fd6f25157b3c574af65ae8ce6ed4e"
+    },
+    {
+      "path": "tests/unit/economics.test.ts",
+      "zone": "tests",
+      "sha256": "e74a602ebceb184fb1089b3e95a4fed839e02451a4b49df3d28f192f0a18b137"
     },
     {
       "path": "tests/unit/github-collector.test.ts",

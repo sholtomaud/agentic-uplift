@@ -1,0 +1,9 @@
+{
+  "name": "agentic-uplift-visual",
+  "private": true,
+  "description": "Isolated visual snapshot tests for the cockpit. Installed only inside the pinned Playwright CI container; the root package.json stays dependency-free.",
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

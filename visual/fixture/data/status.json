@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-23T04:27:41Z",
+  "repository": "sholtomaud/agentic-uplift",
+  "mode": "local",
+  "run_url": null,
+  "summary": {
+    "autonomy": "autonomous-ready",
+    "readiness_score": 95,
+    "proof_seal_ok": true,
+    "blockers_count": 0,
+    "gate_proceed": false,
+    "gate_reason": "no-eligible-issues"
+  },
+  "repo": {
+    "default_branch": "claude/project-thread-24xnrt",
+    "ecosystems": [
+      "npm"
+    ],
+    "languages": [
+      "JavaScript",
+      "TypeScript"
+    ],
+    "file_count": 80,
+    "test_file_count": 24,
+    "zero_runtime_deps": true
+  },
+  "issues": null,
+  "pulls": null,
+  "attribution": null,
+  "ci": null,
+  "delivery": null,
+  "readiness": {
+    "score": 95,
+    "autonomy": "autonomous-ready",
+    "passed": 20,
+    "improve": 1,
+    "missing": 1,
+    "waiting": 4,
+    "total": 26,
+    "blockers": [],
+    "groups": [
+      {
+        "group": "Proof integrity",
+        "score": 89,
+        "passed": 4,
+        "total": 5
+      },
+      {
+        "group": "Code and CI",
+        "score": 100,
+        "passed": 3,
+        "total": 5
+      },
+      {
+        "group": "Supply chain and security",
+        "score": 100,
+        "passed": 9,
+        "total": 9
+      },
+      {
+        "group": "Agent operating model",
+        "score": 100,
+        "passed": 2,
+        "total": 3
+      },
+      {
+        "group": "Issues and delivery",
+        "score": 100,
+        "passed": 2,
+        "total": 3
+      },
+      {
+        "group": "Observability and budgets",
+        "score": 0,
+        "passed": 0,
+        "total": 1
+      }
+    ]
+  },
+  "proof": {
+    "ok": true,
+    "root_sha256": "cead0392e20307e3969d62a953e125f26a03125b37c3a8cde32fb5c8810e3c6b",
+    "locked_files": 34,
+    "violations_count": 0,
+    "changelog_valid": true,
+    "changelog_entries": 2
+  },
+  "endpoints": {
+    "status": "data/status.json",
+    "audit": "data/audit.json",
+    "proof": "data/proof.json",
+    "gate": "data/gate.json",
+    "economics": "data/economics.json",
+    "schemas": {
+      "status": "schemas/status-v1.json",
+      "audit": "schemas/audit-v1.json",
+      "proof": "schemas/proof-v1.json",
+      "gate": "schemas/gate-v1.json",
+      "economics": "schemas/economics-v1.json"
+    }
+  }
+}

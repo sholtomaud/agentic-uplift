@@ -30,7 +30,31 @@ import type {
 } from '../shared/status-types.ts';
 import type { GitHubClient } from './github-client.ts';
 
+/** Merged PR facts reused by the economics collector (no PR text leaves the adapter layer). */
+export interface MergedPullRecord {
+  readonly number: number;
+  readonly origin: WorkOrigin;
+  readonly title: string;
+  /** PR body plus squash/merge commit message (for usage lines and trailers). */
+  readonly text: string;
+  readonly createdAt: string;
+  readonly mergedAt: string;
+  readonly closes: readonly number[];
+}
+
+/** Closed issue facts reused by the economics collector. */
+export interface ClosedIssueRecord {
+  readonly number: number;
+  readonly labels: readonly string[];
+  readonly createdAt: string;
+  readonly closedAt: string;
+  readonly stateReason: string;
+  readonly origin: 'agent' | 'agent-assisted' | 'human';
+}
+
 export interface GitHubTelemetry {
+  readonly mergedPulls: readonly MergedPullRecord[];
+  readonly closedIssues: readonly ClosedIssueRecord[];
   readonly profile: RepoProfile;
   readonly issues: IssueMetrics;
   readonly pulls: PullMetrics;
@@ -69,7 +93,7 @@ function readLabels(obj: Record<string, unknown>): string[] {
   return names;
 }
 
-type WorkOrigin = 'agent' | 'assisted' | 'human';
+export type WorkOrigin = 'agent' | 'assisted' | 'human';
 
 const ATTRIBUTION_CAVEAT =
   'Lower bound: only the most recent 100 issues, pull requests, and default-branch commits are sampled, and agent work without an agent account, attribution trailer, commit author, or opener disclosure is counted as human. All figures are measured from GitHub records, not modeled.';
@@ -133,6 +157,7 @@ export async function collectGitHubTelemetry(
 
   const pullSamples: RawPullSample[] = [];
   const openGatePrs: GatePr[] = [];
+  const mergedPulls: MergedPullRecord[] = [];
   if (Array.isArray(rawPulls)) {
     for (const item of rawPulls) {
       if (!isRecord(item)) continue;
@@ -152,6 +177,15 @@ export async function collectGitHubTelemetry(
             ? 'assisted'
             : 'human';
         addClosingWork(closingWork, `${title}\n${body}`, origin);
+        mergedPulls.push({
+          number: readNumber(item, 'number'),
+          origin,
+          title,
+          text: body,
+          createdAt: readString(item, 'created_at'),
+          mergedAt,
+          closes: extractClosingIssueNumbers(`${title}\n${body}`),
+        });
       }
       pullSamples.push({
         state,
@@ -175,6 +209,7 @@ export async function collectGitHubTelemetry(
 
   const issueSamples: RawIssueSample[] = [];
   const openGateIssues: GateIssue[] = [];
+  const closedIssues: ClosedIssueRecord[] = [];
   if (Array.isArray(rawIssues)) {
     for (const item of rawIssues) {
       if (!isRecord(item) || 'pull_request' in item) continue;
@@ -203,6 +238,16 @@ export async function collectGitHubTelemetry(
           work.length > 0 ||
           /\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\s+#\d+/i.test(body),
       });
+      if (state === 'closed' && closedAt) {
+        closedIssues.push({
+          number: readNumber(item, 'number'),
+          labels,
+          createdAt,
+          closedAt,
+          stateReason: readString(item, 'state_reason'),
+          origin,
+        });
+      }
       if (state === 'open') {
         openGateIssues.push({
           number: readNumber(item, 'number'),
@@ -288,6 +333,8 @@ export async function collectGitHubTelemetry(
   };
 
   return {
+    mergedPulls,
+    closedIssues,
     profile: enrichedProfile,
     issues,
     pulls,

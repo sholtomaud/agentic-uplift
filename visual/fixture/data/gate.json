@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "evaluated_at": "2026-11-23T04:27:41Z",
+  "repository": "sholtomaud/agentic-uplift",
+  "decision": {
+    "proceed": false,
+    "reason": "no-eligible-issues",
+    "message": "No unclaimed eligible issues found.",
+    "issue": null
+  },
+  "constraints": {
+    "proof_seal_ok": true,
+    "require_proof_seal": true,
+    "open_agent_prs": 0,
+    "max_open_agent_prs": 2,
+    "ci_failing_now": [],
+    "agentic_monthly_spend": null,
+    "agentic_monthly_budget": null
+  }
+}

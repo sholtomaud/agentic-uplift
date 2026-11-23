@@ -29,6 +29,7 @@ Instructions for AI coding agents and human maintainers working in `sholtomaud/a
 
 - Use Conventional Commit titles (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
 - Link closing issues with `Fixes #123` in PR descriptions and include exact verification output.
+- When you can, add one `Agent-Usage: model=… input_tokens=… output_tokens=… cache_read_tokens=… run_minutes=…` line per run to the PR description so cost figures are measured rather than modeled.
 - Pin all external GitHub Actions in workflows and audit fix snippets to full 40-character commit SHAs with version comments.
 
 ## Security & Attribution

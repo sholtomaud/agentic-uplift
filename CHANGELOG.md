@@ -28,10 +28,38 @@ live separately in [`PROOF_CHANGELOG.md`](./PROOF_CHANGELOG.md).
   sources, sample sizes and a lower-bound caveat (`basis: "measured"`), shown
   on the cockpit beside agent counts. New issue metrics
   `closed_agent_assisted` and `opened_by_agent`.
+- **People vs agents economics** (#2, #4): `data/economics.json` (schema
+  `schemas/economics-v1.json`) compares issues resolved by people and agents:
+  measured elapsed time, time to first PR, review rounds, reverts, reopens,
+  CI minutes and process compliance, plus modeled $ per issue, hands-on
+  hours, human and agentic monthly budgets (spend, pace, month-end
+  projection), an all-human counterfactual, monthly savings and an uplift
+  pay-off history. Modeled figures are always `{ low, high }` ranges and the
+  report lists which figures are measured and which are modeled.
+- **Dated, sourced LLM price table** (#3): `src/domain/price-table.ts` covers
+  Anthropic, Google Gemini and GitHub Copilot plans with source URLs and
+  effective dates; negotiated rates go in `uplift.config.json` →
+  `costs.priceOverrides`.
+- **`Agent-Usage:` line**: agents can report tokens and run time in PR
+  descriptions or squash commits so their cost is measured, not modeled.
+- **People vs Agents cockpit panel** (#5): cost and time ranges, budget fuel
+  dials with month-end projection, quality against best-in-class targets,
+  compliance shares, savings against the counterfactual with assumptions
+  shown, a readiness-vs-savings pay-off chart, and a table view of every
+  figure. Selected dark-mode series colours.
+- **Isolated visual snapshot workflow** (#8): `.github/workflows/visual.yml`
+  runs Playwright screenshot diffs (1024 px and 390 px, light and dark) in a
+  digest-pinned container against frozen fixture data, with a baseline
+  regeneration flow. The root `package.json` stays dependency-free.
+- Root action inputs `monthly-human-budget`, `human-hourly-rate`,
+  `copilot-seats` and `agent-model`.
 - `CHANGELOG.md`.
 
 ### Changed
 
+- The resolve gate's agentic spend now defaults to **measured** spend
+  (reported token usage and CI minutes this month) in `--github` mode when
+  `MONTHLY_AGENTIC_SPEND` is not set.
 - Agent attribution (#6) matches agent names as whole tokens (no more
   `/claude/i` substring matches on human logins), recognises more agents
   (Antigravity, Gemini, Jules, Roo Code, Amp, OpenHands), reads

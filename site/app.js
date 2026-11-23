@@ -86,6 +86,356 @@ function renderDialSvg({ value, bands, target = null, ticks = [], label, compact
   return `<svg viewBox="0 0 200 184" class="dial" role="img" aria-label="${escapeHtml(label)}">${parts.join('')}</svg>`;
 }
 
+/* --- People vs Agents economics panel (data/economics.json, optional) --- */
+const ECON_SERIES = [
+  { key: 'people', label: 'People', cls: 's-people' },
+  { key: 'agents', label: 'Agents', cls: 's-agents' },
+];
+
+function fmtUsd(n) {
+  if (n === null || n === undefined) return '—';
+  const abs = Math.abs(n);
+  const digits = abs >= 100 ? 0 : abs >= 10 ? 1 : 2;
+  return `${n < 0 ? '−' : ''}$${abs.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
+}
+
+function fmtHours(n) {
+  if (n === null || n === undefined) return '—';
+  if (n < 1) return `${Math.round(n * 60)} min`;
+  return `${n >= 10 ? Math.round(n) : n.toFixed(1)} h`;
+}
+
+function fmtPct(n) {
+  return n === null || n === undefined ? '—' : `${Math.round(n * 100)}%`;
+}
+
+function fmtRange(r, fmt) {
+  if (!r) return '—';
+  return r.low === r.high ? fmt(r.low) : `${fmt(r.low)}–${fmt(r.high)}`;
+}
+
+function point(v) {
+  return v === null || v === undefined ? null : { low: v, high: v };
+}
+
+function linearScale(max) {
+  const top = max > 0 ? max : 1;
+  return (v) => Math.max(0, Math.min(100, (v / top) * 100));
+}
+
+/** Log10 scale for hours spanning minutes to weeks. */
+function logScale(min, max) {
+  const lo = Math.log10(min);
+  const hi = Math.log10(max);
+  return (v) => (v <= min ? 0 : Math.max(0, Math.min(100, ((Math.log10(v) - lo) / (hi - lo)) * 100)));
+}
+
+/**
+ * Horizontal range bars: a solid bar to the low end and a lighter band out to
+ * the high end (modeled ranges), or a solid bar for measured points.
+ */
+function renderRangeBars({ rows, scale, format, ariaLabel, ticks = [] }) {
+  const tickHtml = ticks.length
+    ? `<div class="hbar-axis" aria-hidden="true">${ticks
+        .map((t) => `<span style="left:${scale(t.value).toFixed(2)}%">${escapeHtml(t.label)}</span>`)
+        .join('')}</div>`
+    : '';
+  const body = rows
+    .map((row) => {
+      const tracks = ECON_SERIES.filter((s) => row.values[s.key] !== undefined)
+        .map((s) => {
+          const r = row.values[s.key];
+          const text = fmtRange(r, format);
+          const tip = `${s.label} · ${row.label}: ${text}${row.basis ? ` (${row.basis})` : ''}`;
+          if (!r) {
+            return `<div class="hbar-track" title="${escapeHtml(tip)}"><span class="hbar-empty">no sample</span><span class="hbar-value">—</span></div>`;
+          }
+          const lo = scale(r.low);
+          const hi = scale(r.high);
+          return `<div class="hbar-track" title="${escapeHtml(tip)}">
+              <span class="hbar-plot">
+                <span class="hbar ${s.cls}" style="width:${lo.toFixed(2)}%"></span>
+                ${hi > lo ? `<span class="hbar-band ${s.cls}" style="left:${lo.toFixed(2)}%;width:${(hi - lo).toFixed(2)}%"></span>` : ''}
+              </span>
+              <span class="hbar-value tabular">${escapeHtml(text)}</span>
+            </div>`;
+        })
+        .join('');
+      return `<div class="hbar-row" role="listitem">
+          <span class="hbar-label">${escapeHtml(row.label)}${row.basis ? `<small>${escapeHtml(row.basis)}</small>` : ''}</span>
+          <div class="hbar-tracks">${tracks}</div>
+        </div>`;
+    })
+    .join('');
+  return `<div class="hbar-chart" role="list" aria-label="${escapeHtml(ariaLabel)}">${body}${tickHtml}</div>`;
+}
+
+function renderSeriesLegend() {
+  return `<div class="econ-legend" aria-label="Legend">${ECON_SERIES.map(
+    (s) => `<span><i class="swatch ${s.cls}"></i>${s.label}</span>`
+  ).join('')}<span><i class="swatch swatch-band"></i>Modeled range</span></div>`;
+}
+
+const BUDGET_BANDS = [
+  { from: 0, to: 80, color: 'var(--good)' },
+  { from: 80, to: 95, color: 'var(--warning)' },
+  { from: 95, to: 100, color: 'var(--critical)' },
+];
+
+function renderBudgetDial(title, b, note) {
+  const pct = b.budget ? Math.round((b.spent.high / b.budget) * 100) : null;
+  const projected = b.budget ? Math.round((b.projected_month_end.high / b.budget) * 100) : null;
+  return `<div class="econ-dial">
+      <h4>${escapeHtml(title)}</h4>
+      <div class="dial-wrap">
+        ${renderDialSvg({
+          value: pct,
+          bands: BUDGET_BANDS,
+          target: projected,
+          ticks: [0, 50, 100],
+          label: b.budget ? `${title} ${pct} percent of budget used` : `${title} budget unset`,
+          compact: true,
+        })}
+        <div class="dial-figure">
+          <span class="readout tabular">${pct !== null ? `${pct}%` : 'UNSET'}</span>
+        </div>
+      </div>
+      <dl class="kv-list">
+        <dt>Budget / month</dt><dd class="tabular">${b.budget !== null ? fmtUsd(b.budget) : 'unset'}</dd>
+        <dt>Spent (modeled)</dt><dd class="tabular">${fmtRange(b.spent, fmtUsd)}</dd>
+        ${b.measured_spent !== undefined && b.measured_spent !== null ? `<dt>Spent (measured)</dt><dd class="tabular">${fmtUsd(b.measured_spent)}</dd>` : ''}
+        <dt>Projected month end</dt><dd class="tabular" style="color:var(--target)">${fmtRange(b.projected_month_end, fmtUsd)}</dd>
+        <dt>Day</dt><dd class="tabular">${b.days_elapsed} / ${b.days_in_month}</dd>
+      </dl>
+      ${note ? `<p class="attribution-caveat">${escapeHtml(note)}</p>` : ''}
+    </div>`;
+}
+
+/** Connected scatter: readiness score (x) vs monthly savings midpoint (y), one point per published day. */
+function renderPayoffSvg(points) {
+  if (!points.length) {
+    return '<p class="attribution-caveat">Pay-off history starts with the next publish: each run adds one point (readiness vs modeled savings).</p>';
+  }
+  const W = 320;
+  const H = 180;
+  const L = 48;
+  const R = 12;
+  const T = 12;
+  const B = 30;
+  const mids = points.map((p) => (p.monthly_savings.low + p.monthly_savings.high) / 2);
+  const lows = points.map((p) => p.monthly_savings.low);
+  const highs = points.map((p) => p.monthly_savings.high);
+  const yMin = Math.min(0, ...lows);
+  const yMax = Math.max(1, ...highs);
+  const x = (v) => L + (v / 100) * (W - L - R);
+  const y = (v) => T + (1 - (v - yMin) / (yMax - yMin)) * (H - T - B);
+  const parts = [];
+  for (const t of [0, 25, 50, 75, 100]) {
+    parts.push(`<line x1="${x(t)}" y1="${T}" x2="${x(t)}" y2="${H - B}" class="chart-grid"></line>`);
+    parts.push(`<text x="${x(t)}" y="${H - B + 14}" class="chart-tick" text-anchor="middle">${t}</text>`);
+  }
+  for (const v of [yMin, (yMin + yMax) / 2, yMax]) {
+    parts.push(`<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}" class="chart-grid"></line>`);
+    parts.push(`<text x="${L - 6}" y="${(y(v) + 3.5).toFixed(1)}" class="chart-tick" text-anchor="end">${escapeHtml(fmtUsd(v))}</text>`);
+  }
+  if (yMin < 0) parts.push(`<line x1="${L}" y1="${y(0)}" x2="${W - R}" y2="${y(0)}" class="chart-axis"></line>`);
+  parts.push(`<text x="${(L + W - R) / 2}" y="${H - 2}" class="chart-tick" text-anchor="middle">Readiness score (%)</text>`);
+  const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(p.readiness_score).toFixed(1)} ${y(mids[i]).toFixed(1)}`).join(' ');
+  if (points.length > 1) parts.push(`<path d="${d}" class="payoff-line"></path>`);
+  points.forEach((p, i) => {
+    const cx = x(p.readiness_score).toFixed(1);
+    parts.push(
+      `<line x1="${cx}" y1="${y(p.monthly_savings.low).toFixed(1)}" x2="${cx}" y2="${y(p.monthly_savings.high).toFixed(1)}" class="payoff-whisker"></line>`,
+      `<circle cx="${cx}" cy="${y(mids[i]).toFixed(1)}" r="4.5" class="payoff-dot"><title>${escapeHtml(`${p.date}: readiness ${p.readiness_score}%, savings ${fmtRange(p.monthly_savings, fmtUsd)}/month, agent change failure ${fmtPct(p.agent_change_failure_rate)}`)}</title></circle>`,
+      `<circle cx="${cx}" cy="${y(mids[i]).toFixed(1)}" r="12" class="hit"><title>${escapeHtml(`${p.date}: readiness ${p.readiness_score}%, savings ${fmtRange(p.monthly_savings, fmtUsd)}/month`)}</title></circle>`
+    );
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" class="payoff-chart" role="img" aria-label="Uplift pay-off: monthly savings against readiness score over ${points.length} published days">${parts.join('')}</svg>`;
+}
+
+function renderEconomicsPanel(econ) {
+  if (!econ) {
+    return `<section id="economics" class="card" aria-label="People vs Agents">
+        <div class="panel-head"><div>
+          <div class="eyebrow">People vs Agents</div>
+          <h2>Time, cost, quality &amp; budgets</h2>
+          <p>No <code>data/economics.json</code> yet. Publish with <code>--github</code> to measure resolved issues and model costs.</p>
+        </div></div>
+      </section>`;
+  }
+  const { people, agents, quality, compliance, budgets, savings, assumptions } = econ;
+  const hourTicks = [
+    { value: 0.1, label: '6 min' },
+    { value: 1, label: '1h' },
+    { value: 10, label: '10h' },
+    { value: 100, label: '100h' },
+    { value: 1000, label: '1k h' },
+  ];
+  const usdMax = Math.max(1, people.usd_per_issue?.high ?? 0, agents.usd_per_issue?.high ?? 0);
+  const savingsMax = Math.max(1, savings.actual_monthly.high, savings.all_human_counterfactual.high);
+  const qualityRows = [
+    ['Linked fix share', 'linked_fix_share', fmtPct, 'higher'],
+    ['Revert rate', 'revert_rate', fmtPct, 'lower'],
+    ['Reopen rate', 'reopen_rate', fmtPct, 'lower'],
+    ['Change failure rate', 'change_failure_rate', fmtPct, 'lower'],
+    ['Median hours to first PR', 'median_hours_to_first_pr', fmtHours, 'lower'],
+    ['Median review rounds', 'median_review_rounds', (v) => (v === null ? '—' : String(v)), 'lower'],
+  ];
+  const complianceRows = [
+    ['Conventional title', 'conventional_title'],
+    ['Links an issue', 'links_issue'],
+    ['Agent attribution', 'attributed'],
+    ['Touches tests', 'touches_tests'],
+    ['CI green on first push', 'ci_green_first_push'],
+  ].map(([label, key]) => ({
+    label,
+    basis: 'measured',
+    values: { people: point(compliance.people[key]), agents: point(compliance.agents[key]) },
+  }));
+  const monthly = savings.monthly_savings;
+
+  return `<section id="economics" class="card econ" aria-label="People vs Agents">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">People vs Agents · ${econ.sample.resolved_issues} resolved issues · ${econ.sample.window_days}-day window</div>
+          <h2>Time, cost, quality &amp; budgets</h2>
+          <p>${escapeHtml(econ.provenance.caveat)}</p>
+        </div>
+        ${renderSeriesLegend()}
+      </div>
+
+      <div class="econ-grid">
+        <article class="econ-cell">
+          <h3>Cost per resolved issue <span class="basis">modeled</span></h3>
+          <p class="econ-sub">Agents include tokens, CI minutes and human review/revert time. ${agents.reported_usage_share !== null ? `${fmtPct(agents.reported_usage_share)} of agent $ is backed by reported usage.` : 'No agent PR reported usage yet.'}</p>
+          ${renderRangeBars({
+            rows: [{ label: '$ / issue', values: { people: people.usd_per_issue, agents: agents.usd_per_issue } }],
+            scale: linearScale(usdMax),
+            format: fmtUsd,
+            ariaLabel: 'Dollars per resolved issue, people vs agents',
+          })}
+          <dl class="kv-list">
+            <dt>Resolved by people / agents</dt><dd class="tabular">${people.resolved} / ${agents.resolved}</dd>
+          </dl>
+        </article>
+
+        <article class="econ-cell">
+          <h3>Time per issue <span class="basis">log scale</span></h3>
+          <p class="econ-sub">Hands-on human time is modeled; elapsed and agent run time are measured.</p>
+          ${renderRangeBars({
+            rows: [
+              { label: 'Hands-on human', basis: 'modeled', values: { people: people.hands_on_hours, agents: agents.hands_on_hours } },
+              { label: 'Elapsed open→close', basis: 'measured', values: { people: point(people.median_elapsed_hours), agents: point(agents.median_elapsed_hours) } },
+              { label: 'Agent run', basis: 'measured', values: { agents: point(agents.agent_run_minutes_median === null ? null : agents.agent_run_minutes_median / 60) } },
+            ],
+            scale: logScale(0.1, 1000),
+            format: fmtHours,
+            ticks: hourTicks,
+            ariaLabel: 'Hours per resolved issue on a log scale, people vs agents',
+          })}
+        </article>
+
+        <article class="econ-cell econ-dials">
+          <h3>Fuel: monthly budgets <span class="basis">modeled</span></h3>
+          <div class="econ-dial-pair">
+            ${renderBudgetDial('Human', budgets.human, '')}
+            ${renderBudgetDial('Agentic', budgets.agentic, 'The resolve gate pauses on measured spend only.')}
+          </div>
+        </article>
+
+        <article class="econ-cell">
+          <h3>Quality vs best in class <span class="basis">measured</span></h3>
+          <div class="table-scroll">
+            <table class="econ-table">
+              <thead><tr><th scope="col">Metric</th><th scope="col">People</th><th scope="col">Agents</th><th scope="col">Best in class</th></tr></thead>
+              <tbody>
+                ${qualityRows
+                  .map(
+                    ([label, key, fmt, better]) =>
+                      `<tr><th scope="row">${label}<small>${better} is better</small></th><td class="tabular">${fmt(quality.people[key])}</td><td class="tabular">${fmt(quality.agents[key])}</td><td class="tabular">${fmt(quality.best_in_class[key])}</td></tr>`
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="econ-cell">
+          <h3>Process compliance <span class="basis">measured</span></h3>
+          <p class="econ-sub">Share of merged PRs: ${compliance.people.prs} by people, ${compliance.agents.prs} by agents.</p>
+          ${renderRangeBars({
+            rows: complianceRows,
+            scale: linearScale(1),
+            format: fmtPct,
+            ariaLabel: 'Process compliance shares, people vs agents',
+          })}
+        </article>
+
+        <article class="econ-cell">
+          <h3>Savings this month <span class="basis">modeled</span></h3>
+          <p class="econ-sub">Actual agentic + human review spend against the all-human counterfactual.</p>
+          <div class="hbar-chart" role="list" aria-label="Monthly spend vs all-human counterfactual">
+            ${[
+              ['Actual (agents + review)', savings.actual_monthly, 's-agents'],
+              ['All-human counterfactual', savings.all_human_counterfactual, 's-people'],
+            ]
+              .map(([label, r, cls]) => {
+                const sc = linearScale(savingsMax);
+                const lo = sc(r.low);
+                const hi = sc(r.high);
+                return `<div class="hbar-row" role="listitem"><span class="hbar-label">${label}</span><div class="hbar-tracks"><div class="hbar-track" title="${escapeHtml(`${label}: ${fmtRange(r, fmtUsd)}`)}"><span class="hbar-plot"><span class="hbar ${cls}" style="width:${lo.toFixed(2)}%"></span>${hi > lo ? `<span class="hbar-band ${cls}" style="left:${lo.toFixed(2)}%;width:${(hi - lo).toFixed(2)}%"></span>` : ''}</span><span class="hbar-value tabular">${escapeHtml(fmtRange(r, fmtUsd))}</span></div></div></div>`;
+              })
+              .join('')}
+          </div>
+          <p class="econ-headline"><span class="readout tabular">${escapeHtml(fmtRange(monthly, fmtUsd))}</span> saved / month</p>
+          <details class="econ-assumptions">
+            <summary>Assumptions</summary>
+            <dl class="kv-list">
+              <dt>Human hourly rate</dt><dd class="tabular">${fmtUsd(assumptions.human_hourly_rate)}</dd>
+              <dt>Agent model (unreported usage)</dt><dd>${escapeHtml(assumptions.agent_model)}</dd>
+              <dt>Review hours / round</dt><dd class="tabular">${fmtRange(assumptions.review_hours_per_round, fmtHours)}</dd>
+              <dt>Revert hours</dt><dd class="tabular">${fmtRange(assumptions.revert_hours, fmtHours)}</dd>
+              <dt>CI $ / minute</dt><dd class="tabular">${fmtUsd(assumptions.ci_minute_usd)}</dd>
+              <dt>Copilot seats</dt><dd class="tabular">${assumptions.copilot_seats} · ${escapeHtml(assumptions.copilot_plan)}</dd>
+              <dt>Price table</dt><dd>${escapeHtml(econ.price_table.version)} (${econ.price_table.entries.length} prices)</dd>
+            </dl>
+          </details>
+        </article>
+
+        <article class="econ-cell">
+          <h3>Uplift pay-off <span class="basis">modeled savings</span></h3>
+          <p class="econ-sub">One point per publish: does readiness buy savings? Whiskers show the modeled range.</p>
+          ${renderPayoffSvg(econ.payoff)}
+        </article>
+      </div>
+
+      <details class="econ-tableview">
+        <summary>Table view of all figures</summary>
+        <div class="table-scroll">
+          <table class="econ-table">
+            <thead><tr><th scope="col">Figure</th><th scope="col">Basis</th><th scope="col">People</th><th scope="col">Agents</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Resolved issues</th><td>measured</td><td class="tabular">${people.resolved}</td><td class="tabular">${agents.resolved}</td></tr>
+              <tr><th scope="row">$ per issue</th><td>modeled</td><td class="tabular">${fmtRange(people.usd_per_issue, fmtUsd)}</td><td class="tabular">${fmtRange(agents.usd_per_issue, fmtUsd)}</td></tr>
+              <tr><th scope="row">Hands-on human hours</th><td>modeled</td><td class="tabular">${fmtRange(people.hands_on_hours, fmtHours)}</td><td class="tabular">${fmtRange(agents.hands_on_hours, fmtHours)}</td></tr>
+              <tr><th scope="row">Median elapsed</th><td>measured</td><td class="tabular">${fmtHours(people.median_elapsed_hours)}</td><td class="tabular">${fmtHours(agents.median_elapsed_hours)}</td></tr>
+              <tr><th scope="row">Median agent run</th><td>measured</td><td>—</td><td class="tabular">${agents.agent_run_minutes_median === null ? '—' : `${agents.agent_run_minutes_median} min`}</td></tr>
+              ${complianceRows
+                .map(
+                  (r) =>
+                    `<tr><th scope="row">${r.label}</th><td>measured</td><td class="tabular">${fmtRange(r.values.people, fmtPct)}</td><td class="tabular">${fmtRange(r.values.agents, fmtPct)}</td></tr>`
+                )
+                .join('')}
+              <tr><th scope="row">Monthly spend</th><td>modeled</td><td class="tabular">${fmtRange(budgets.human.spent, fmtUsd)}</td><td class="tabular">${fmtRange(budgets.agentic.spent, fmtUsd)}</td></tr>
+              <tr><th scope="row">All-human counterfactual / month</th><td>modeled</td><td class="tabular">${fmtRange(savings.all_human_counterfactual, fmtUsd)}</td><td>—</td></tr>
+              <tr><th scope="row">Savings / month</th><td>modeled</td><td>—</td><td class="tabular">${fmtRange(monthly, fmtUsd)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>`;
+}
+
 const READINESS_BANDS = [
   { from: 0, to: 50, color: 'var(--critical)' },
   { from: 50, to: 85, color: 'var(--warning)' },
@@ -230,7 +580,11 @@ class UpliftCockpit extends HTMLElement {
         fetch('data/proof.json').then((r) => r.json()),
         fetch('data/gate.json').then((r) => r.json()),
       ]);
-      this.bundle = { status, audit, proof, gate };
+      // Optional endpoint: older publishes and local mode may not have it.
+      const economics = await fetch('data/economics.json')
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      this.bundle = { status, audit, proof, gate, economics };
       this.render();
     } catch (err) {
       this.innerHTML = `<main class="shell"><div class="card"><h2>Failed to load JSON endpoints</h2><pre class="code-block">${escapeHtml(String(err))}</pre></div></main>`;
@@ -248,7 +602,7 @@ class UpliftCockpit extends HTMLElement {
 
   render() {
     if (!this.bundle) return;
-    const { status, audit, proof, gate } = this.bundle;
+    const { status, audit, proof, gate, economics } = this.bundle;
     const manualCommands = Array.isArray(audit.manual_commands)
       ? audit.manual_commands
       : [];
@@ -331,6 +685,7 @@ class UpliftCockpit extends HTMLElement {
           </div>
           <nav class="nav-links" aria-label="Sections">
             <a href="#flight-deck">Flight Deck</a>
+            <a href="#economics">People vs Agents</a>
             <a href="#manual-uplift">gh CLI Runbook (${pendingManual.length})</a>
             <a href="#audit-checks">Audit (${audit.readiness.passed}/${audit.readiness.total})</a>
             <a href="#agent-api">Agent JSON API</a>
@@ -509,6 +864,8 @@ class UpliftCockpit extends HTMLElement {
               .join('')}
           </div>
         </section>
+
+        ${renderEconomicsPanel(economics)}
 
         <!-- Manual Uplift Runbook (gh CLI commands) -->
         <section id="manual-uplift" class="card" aria-label="Manual gh CLI Uplift Runbook">
