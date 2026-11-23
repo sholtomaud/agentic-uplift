@@ -1,0 +1,81 @@
+name: Cockpit Visual Snapshots
+
+# Isolated from the zero-dependency verify job: Playwright is installed only
+# inside this pinned container, from visual/package-lock.json.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'visual/**'
+      - '.github/workflows/visual.yml'
+  workflow_dispatch:
+    inputs:
+      update-baselines:
+        description: 'Regenerate baselines and upload them as an artifact (commit them yourself)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  snapshots:
+    name: Visual snapshot diff (desktop 1024 / phone 390)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --ipc=host
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Choose mode
+        id: mode
+        env:
+          UPDATE: ${{ inputs.update-baselines }}
+        run: |
+          if [ "$UPDATE" = "true" ] || [ ! -d visual/snapshots ]; then
+            echo "args=--update-snapshots" >> "$GITHUB_OUTPUT"
+            echo "update=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Generating baselines (no committed baselines, or update requested). Download the visual-baselines artifact and commit visual/snapshots/."
+          else
+            echo "args=" >> "$GITHUB_OUTPUT"
+            echo "update=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run visual snapshots
+        env:
+          HOME: /root
+          ARGS: ${{ steps.mode.outputs.args }}
+        run: bash visual/run.sh $ARGS
+
+      - name: Upload baselines
+        if: steps.mode.outputs.update == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-baselines
+          path: visual/snapshots/
+          retention-days: 14
+
+      - name: Upload diff report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-diff-report
+          path: |
+            visual/report/
+            visual/test-results/
+          retention-days: 14

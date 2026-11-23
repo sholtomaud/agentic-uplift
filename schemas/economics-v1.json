@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Uplift People-vs-Agents Economics v1",
+  "description": "Cost, time, quality, AGENTS.md compliance, budgets, savings and uplift pay-off. Measured figures come from GitHub records; modeled figures are ranges derived from the stated assumptions and price table. Counts, rates and $ only, never issue text.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "repository",
+    "mode",
+    "price_table",
+    "assumptions",
+    "provenance",
+    "sample",
+    "people",
+    "agents",
+    "quality",
+    "compliance",
+    "budgets",
+    "savings",
+    "payoff"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generated_at": { "type": "string", "minLength": 10 },
+    "repository": { "type": "string", "minLength": 1 },
+    "mode": { "enum": ["local", "github"] },
+    "price_table": {
+      "type": "object",
+      "required": ["version", "entries"],
+      "properties": {
+        "version": { "type": "string", "minLength": 10 },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["model", "provider", "kind", "source", "effective"],
+            "properties": {
+              "model": { "type": "string", "minLength": 1 },
+              "provider": { "enum": ["anthropic", "google", "github"] },
+              "kind": { "enum": ["per-token", "per-seat"] },
+              "source": { "type": "string", "minLength": 8 },
+              "effective": { "type": "string", "minLength": 10 }
+            }
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "object",
+      "required": ["human_hourly_rate", "hands_on_hours", "review_hours_per_round", "revert_hours", "ci_minute_usd", "agent_model", "assumed_tokens_per_issue"],
+      "properties": {
+        "human_hourly_rate": { "type": "number", "minimum": 0 },
+        "ci_minute_usd": { "type": "number", "minimum": 0 },
+        "agent_model": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["measured", "modeled", "caveat"],
+      "properties": {
+        "measured": { "type": "array", "items": { "type": "string" } },
+        "modeled": { "type": "array", "items": { "type": "string" } },
+        "caveat": { "type": "string", "minLength": 10 }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "required": ["resolved_issues", "window_days"],
+      "properties": {
+        "resolved_issues": { "type": "integer", "minimum": 0 },
+        "window_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "people": { "type": "object", "required": ["resolved", "median_elapsed_hours", "hands_on_hours", "usd_per_issue"] },
+    "agents": { "type": "object", "required": ["resolved", "median_elapsed_hours", "hands_on_hours", "usd_per_issue", "reported_usage_share"] },
+    "quality": { "type": "object", "required": ["people", "agents", "best_in_class"] },
+    "compliance": { "type": "object", "required": ["people", "agents"] },
+    "budgets": {
+      "type": "object",
+      "required": ["human", "agentic"],
+      "properties": {
+        "human": { "type": "object", "required": ["budget", "spent", "pace_per_day", "projected_month_end"] },
+        "agentic": { "type": "object", "required": ["budget", "spent", "measured_spent", "pace_per_day", "projected_month_end"] }
+      }
+    },
+    "savings": { "type": "object", "required": ["actual_monthly", "all_human_counterfactual", "monthly_savings"] },
+    "payoff": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date", "readiness_score", "monthly_savings", "agent_change_failure_rate"]
+      }
+    }
+  }
+}

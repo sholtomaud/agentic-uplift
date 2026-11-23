@@ -62,6 +62,10 @@
     --critical-ink: #ef6f6f;
     --dial-track: #2c2c2a;
     --dial-needle: #f0efec;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
   }
 }
 
@@ -85,6 +89,10 @@
   --critical-ink: #ef6f6f;
   --dial-track: #2c2c2a;
   --dial-needle: #f0efec;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
 }
 
 * {
@@ -849,4 +857,304 @@ footer.foot {
   max-width: 720px;
   margin: 40px auto;
   padding: 24px;
+}
+
+/* People vs Agents economics panel */
+.s-people {
+  --c: var(--series-1);
+}
+
+.s-agents {
+  --c: var(--series-2);
+}
+
+.econ .panel-head {
+  flex-wrap: wrap;
+}
+
+.econ-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+
+.econ-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--c);
+}
+
+.swatch-band {
+  background: var(--ink-muted);
+  opacity: 0.35;
+}
+
+.econ-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+}
+
+.econ-cell {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.econ-cell h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.econ-cell h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.basis {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  vertical-align: middle;
+}
+
+.econ-sub {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.hbar-chart {
+  display: grid;
+  gap: 10px;
+  position: relative;
+}
+
+.hbar-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 34%) 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.hbar-label {
+  display: grid;
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+
+.hbar-label small {
+  font-size: 0.66rem;
+  color: var(--ink-muted);
+}
+
+.hbar-tracks {
+  display: grid;
+  gap: 2px;
+}
+
+.hbar-track {
+  display: grid;
+  grid-template-columns: 1fr minmax(64px, auto);
+  gap: 8px;
+  align-items: center;
+  min-height: 16px;
+}
+
+.hbar-plot {
+  position: relative;
+  height: 10px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(var(--grid), var(--grid)) left center / 1px 100% no-repeat;
+}
+
+.hbar,
+.hbar-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--c);
+}
+
+.hbar {
+  left: 0;
+  border-radius: 0 4px 4px 0;
+  min-width: 2px;
+}
+
+.hbar-band {
+  opacity: 0.35;
+  border-radius: 0 4px 4px 0;
+}
+
+.hbar-value {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.hbar-empty {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+}
+
+.hbar-axis {
+  position: relative;
+  height: 14px;
+  margin-left: calc(34% + 8px);
+  margin-right: 72px;
+  font-size: 0.64rem;
+  color: var(--ink-muted);
+}
+
+.hbar-axis span {
+  white-space: nowrap;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.econ-dial-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.econ-dial .dial-wrap {
+  width: 128px;
+  margin: 0 auto;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.econ-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.econ-table th,
+.econ-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--grid);
+  text-align: right;
+}
+
+.econ-table th[scope='row'],
+.econ-table thead th:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.econ-table th small {
+  display: block;
+  font-size: 0.64rem;
+  color: var(--ink-muted);
+}
+
+.econ-headline {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+
+.econ-headline .readout {
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+
+.econ-assumptions summary,
+.econ-tableview summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--ink-2);
+}
+
+.econ-tableview {
+  margin-top: 14px;
+}
+
+.payoff-chart {
+  width: 100%;
+  height: auto;
+}
+
+.chart-grid {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+
+.chart-axis {
+  stroke: var(--axis);
+  stroke-width: 1;
+}
+
+.chart-tick {
+  font-size: 10px;
+  fill: var(--ink-muted);
+}
+
+.payoff-line {
+  fill: none;
+  stroke: var(--series-2);
+  stroke-width: 2;
+}
+
+.payoff-whisker {
+  stroke: var(--series-2);
+  stroke-width: 2;
+  opacity: 0.4;
+}
+
+.payoff-dot {
+  fill: var(--series-2);
+  stroke: var(--surface-2);
+  stroke-width: 2;
+}
+
+.hit {
+  fill: transparent;
+}
+
+@media (max-width: 600px) {
+  .econ-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hbar-axis {
+    margin-right: 72px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .econ * {
+    transition: none !important;
+    animation: none !important;
+  }
 }

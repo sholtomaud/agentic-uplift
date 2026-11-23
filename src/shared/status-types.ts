@@ -102,11 +102,13 @@ export interface StatusReport {
     readonly audit: string;
     readonly proof: string;
     readonly gate: string;
+    readonly economics?: string;
     readonly schemas: {
       readonly status: string;
       readonly audit: string;
       readonly proof: string;
       readonly gate: string;
+      readonly economics?: string;
     };
   };
 }

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-11-23T04:27:41Z",
+  "ok": true,
+  "source": "local:proof-lock.json",
+  "root_sha256": "cead0392e20307e3969d62a953e125f26a03125b37c3a8cde32fb5c8810e3c6b",
+  "locked_files": 34,
+  "harness_files": 12,
+  "test_files": 22,
+  "metric_floors": {
+    "minUnitTests": 68,
+    "minPropertyTests": 8,
+    "minArchRules": 9,
+    "maxSkippedTests": 0
+  },
+  "added_test_files": [
+    "tests/properties/economics.prop.test.ts",
+    "tests/unit/economics.test.ts"
+  ],
+  "authorized_changes": [],
+  "violations": [],
+  "changelog": {
+    "valid": true,
+    "count": 2,
+    "head_attestation": "6e52fe9fed1ce3d80cac815bbf86125b57ec22c46f6ab053c0e32ab58aa0ce89",
+    "errors": []
+  }
+}

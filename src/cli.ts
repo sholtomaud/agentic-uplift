@@ -8,8 +8,10 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { collectEconomicsSamples } from './adapters/economics-collector.ts';
 import { createGitHubClient } from './adapters/github-client.ts';
 import { collectGitHubTelemetry } from './adapters/github-collector.ts';
+import { loadPayoffHistory, readPayoffHistoryFile } from './adapters/payoff-history.ts';
 import { publishUpliftSite } from './adapters/site-publisher.ts';
 import { runArchCheck } from './core/arch-check.ts';
 import { runStaticRulesCheck } from './core/check-rules.ts';
@@ -23,9 +25,18 @@ import {
   verifyRepositoryProof,
 } from './core/proof-io.ts';
 import { buildAuditReport } from './domain/audit-engine.ts';
+import { buildEconomicsReport, resolveCostAssumptions } from './domain/economics.ts';
 import { runAgentQuery } from './domain/query-engine.ts';
 import { evaluateResolveGate } from './domain/resolve-gate.ts';
 import type { AuditReport } from './shared/audit-types.ts';
+import {
+  readCostOverrides,
+  type CostAssumptions,
+  type EconomicsReport,
+  type PayoffPoint,
+  type PullComplianceSample,
+  type ResolvedIssueSample,
+} from './shared/economics-types.ts';
 import type { GateIssue, GatePr, GateReport } from './shared/gate-types.ts';
 import type {
   MetricFloors,
@@ -237,12 +248,15 @@ async function computeControlPlaneBundle(
     readonly maxOpenPrs?: number | null;
     readonly budget?: number | null;
     readonly spend?: number | null;
+    /** Previously published economics.json (for uplift pay-off history). */
+    readonly historyFile?: string;
   }
 ): Promise<{
   readonly status: StatusReport;
   readonly audit: AuditReport;
   readonly proof: ProofVerificationReport;
   readonly gate: GateReport;
+  readonly economics: EconomicsReport;
 }> {
   const now = new Date();
   const nowIso = now.toISOString().replace(/\.\d+Z$/, 'Z');
@@ -259,6 +273,12 @@ async function computeControlPlaneBundle(
   let deliveryMetric = null;
   let openGateIssues: readonly GateIssue[] = [];
   let openGatePrs: readonly GatePr[] = [];
+  let econIssues: readonly ResolvedIssueSample[] = [];
+  let econPulls: readonly PullComplianceSample[] = [];
+  let econWindowDays = 0;
+  let history: readonly PayoffPoint[] = options.historyFile
+    ? readPayoffHistoryFile(options.historyFile)
+    : [];
 
   const token =
     process.env.UPLIFT_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim() || '';
@@ -292,6 +312,21 @@ async function computeControlPlaneBundle(
     deliveryMetric = telemetry.delivery;
     openGateIssues = telemetry.openGateIssues;
     openGatePrs = telemetry.openGatePrs;
+    // Economics detail is best-effort: a failed extra call must not block the control plane.
+    try {
+      const samples = await collectEconomicsSamples(
+        client,
+        envRepo,
+        telemetry.mergedPulls,
+        telemetry.closedIssues
+      );
+      econIssues = samples.issues;
+      econPulls = samples.pulls;
+      econWindowDays = samples.windowDays;
+    } catch (err) {
+      console.error(`[agentic-uplift] economics samples skipped: ${String(err)}`);
+    }
+    if (history.length === 0) history = await loadPayoffHistory(client, envRepo);
   } else if (options.budget !== undefined && options.budget !== null) {
     profile = { ...profile, costConfigured: true };
   }
@@ -301,8 +336,23 @@ async function computeControlPlaneBundle(
   const maxOpenAgentPrs =
     options.maxOpenPrs ?? config?.gate.maxOpenAgentPrs ?? 2;
   const requireProofSeal = config?.gate.requireProofSeal ?? true;
-  const budget = options.budget ?? null;
-  const spend = options.spend ?? null;
+  const assumptions = loadCostAssumptions(root, options.budget ?? null);
+  const economics = buildEconomicsReport({
+    repository: profile.repository,
+    mode,
+    now,
+    windowDays: econWindowDays,
+    issues: econIssues,
+    pulls: econPulls,
+    assumptions,
+    readinessScore: audit.readiness.score,
+    history,
+  });
+  const budget = assumptions.monthly_agentic_budget;
+  // Without an explicit spend, gate only on measured spend (reported usage + CI), never on modeled estimates.
+  const spend =
+    options.spend ??
+    (mode === 'github' ? economics.budgets.agentic.measured_spent : null);
 
   const decision = evaluateResolveGate({
     issues: openGateIssues,
@@ -379,16 +429,45 @@ async function computeControlPlaneBundle(
       audit: 'data/audit.json',
       proof: 'data/proof.json',
       gate: 'data/gate.json',
+      economics: 'data/economics.json',
       schemas: {
         status: 'schemas/status-v1.json',
         audit: 'schemas/audit-v1.json',
         proof: 'schemas/proof-v1.json',
         gate: 'schemas/gate-v1.json',
+        economics: 'schemas/economics-v1.json',
       },
     },
   };
 
-  return { status, audit, proof, gate };
+  return { status, audit, proof, gate, economics };
+}
+
+/** Defaults ← uplift.config.json `costs` ← environment / action inputs. */
+function loadCostAssumptions(root: string, budgetOverride: number | null): CostAssumptions {
+  let fromConfig: Partial<CostAssumptions> = {};
+  const cfgPath = path.join(root, 'uplift.config.json');
+  if (fs.existsSync(cfgPath)) {
+    try {
+      const parsed: unknown = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      if (parsed && typeof parsed === 'object' && 'costs' in parsed) {
+        fromConfig = readCostOverrides(parsed.costs);
+      }
+    } catch {
+      fromConfig = {};
+    }
+  }
+  const env: Record<string, unknown> = {};
+  const envNum = (name: string, key: string): void => {
+    const v = parseOptionalNumber(process.env[name]);
+    if (v !== null) env[key] = v;
+  };
+  envNum('HUMAN_HOURLY_RATE', 'humanHourlyRate');
+  envNum('MONTHLY_HUMAN_BUDGET', 'monthlyHumanBudget');
+  envNum('COPILOT_SEATS', 'copilotSeats');
+  if (process.env.AGENT_MODEL?.trim()) env.agentModel = process.env.AGENT_MODEL.trim();
+  if (budgetOverride !== null) env.monthlyAgenticBudget = budgetOverride;
+  return resolveCostAssumptions(fromConfig, readCostOverrides(env));
 }
 
 function installGitHooks(root: string): {
@@ -735,7 +814,14 @@ export async function runCli(argv: readonly string[]): Promise<number> {
 
   if (command === 'publish') {
     const outDir = path.resolve(root, readFlag(argv, '--out') ?? '_site');
+    const historyFlag = readFlag(argv, '--history');
+    const previous = path.join(outDir, 'data', 'economics.json');
     const bundle = await computeControlPlaneBundle(root, {
+      historyFile: historyFlag
+        ? path.resolve(root, historyFlag)
+        : fs.existsSync(previous)
+          ? previous
+          : undefined,
       useGitHub: hasFlag(argv, '--github'),
       budget: parseOptionalNumber(process.env.MONTHLY_AGENTIC_BUDGET),
       spend: parseOptionalNumber(process.env.MONTHLY_AGENTIC_SPEND),
@@ -772,6 +858,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         audit: readIfExists('audit.json'),
         proof: readIfExists('proof.json'),
         gate: readIfExists('gate.json'),
+        economics: readIfExists('economics.json'),
       };
     } else {
       bundle = await computeControlPlaneBundle(root, { useGitHub: false });

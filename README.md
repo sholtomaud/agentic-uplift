@@ -49,6 +49,7 @@ Use all three or adopt them incrementally:
 - uses: sholtomaud/agentic-uplift@v1
   with:
     monthly-agentic-budget: '50'
+    monthly-human-budget: '20000' # optional; see People vs Agents below
 ```
 
 ### 2. Tier-0 Cryptographic PR Tamper Gate (any language: TS, Python, Go, Rust)
@@ -66,6 +67,75 @@ Use all three or adopt them incrementally:
     max-open-agent-prs: '2'
     monthly-agentic-budget: '50'
 ```
+
+## People vs Agents Economics (`data/economics.json`)
+
+`publish --github` also writes `data/economics.json` (schema
+`schemas/economics-v1.json`) and a *People vs Agents* cockpit panel comparing
+issues resolved by people and by agents. Every figure is tagged:
+
+- **measured**: observed in GitHub records (resolved counts, elapsed time, time
+  to first PR, review rounds, reverts, reopens, CI minutes, compliance shares,
+  agent-reported token usage and run time);
+- **modeled**: derived from stated assumptions and a dated, sourced price table
+  (`src/domain/price-table.ts`), always reported as a `{ low, high }` range
+  ($ per issue, hands-on hours, budgets, savings).
+
+The resolve gate pauses on **measured** agentic spend only, never on a modeled
+range. Agents can make their cost measured by adding one line per run to the PR
+description or squash commit:
+
+```text
+Agent-Usage: model=claude-opus-5-5 input_tokens=1200000 output_tokens=45000 cache_read_tokens=800000 run_minutes=18
+```
+
+Tune assumptions in an optional `costs` block of `uplift.config.json` (every
+key is optional; ranges are `{ "low": n, "high": n }`):
+
+```json
+{
+  "costs": {
+    "humanHourlyRate": 120,
+    "monthlyHumanBudget": 20000,
+    "monthlyAgenticBudget": 500,
+    "agentModel": "claude-sonnet-5-5",
+    "copilotSeats": 3,
+    "copilotPlan": "copilot-business",
+    "handsOnHours": { "security": { "low": 4, "high": 16 }, "bug": { "low": 2, "high": 8 }, "other": { "low": 1, "high": 6 } },
+    "reviewHoursPerRound": { "low": 0.25, "high": 1 },
+    "revertHours": { "low": 1, "high": 4 },
+    "ciMinuteUsd": 0.006,
+    "priceOverrides": { "claude-opus-5-5": { "inputPerMTok": 3.5, "outputPerMTok": 17.5 } }
+  }
+}
+```
+
+The root action takes the most common ones as inputs (`monthly-human-budget`,
+`human-hourly-rate`, `copilot-seats`, `agent-model`, `monthly-agentic-budget`).
+The pay-off history (readiness vs savings) accumulates across publishes by
+reading the previous `data/economics.json` from the output directory, `--history
+<file>`, or the deployed Pages site.
+
+## Visual Snapshot Tests (isolated)
+
+`.github/workflows/visual.yml` diffs cockpit screenshots (desktop 1024 px and
+phone 390 px, light and dark) against `visual/snapshots/`, using frozen
+fixture data in `visual/fixture/data/`. Playwright is installed only inside a
+digest-pinned `mcr.microsoft.com/playwright` container from
+`visual/package-lock.json`; the root `package.json` stays dependency-free.
+
+To regenerate baselines, run the workflow with *update-baselines* and commit
+the `visual-baselines` artifact to `visual/snapshots/`, or run the same
+container locally:
+
+```bash
+docker run --rm -v "$PWD":/work -w /work --ipc=host \
+  mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27 \
+  bash visual/run.sh --update-snapshots
+```
+
+When `visual/snapshots/` does not exist yet, the workflow generates baselines
+and uploads them as an artifact instead of failing.
 
 ## Architecture (Enforced by `src/core/arch-check.ts`)
 

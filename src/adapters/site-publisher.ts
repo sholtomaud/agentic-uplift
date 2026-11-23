@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { AuditReport } from '../shared/audit-types.ts';
+import type { EconomicsReport } from '../shared/economics-types.ts';
 import type { GateReport } from '../shared/gate-types.ts';
 import type { ProofVerificationReport } from '../shared/proof-types.ts';
 import type { StatusReport } from '../shared/status-types.ts';
@@ -15,6 +16,7 @@ export interface PublishBundle {
   readonly audit: AuditReport;
   readonly proof: ProofVerificationReport;
   readonly gate: GateReport;
+  readonly economics?: EconomicsReport;
 }
 
 export function generateLlmsTxt(repository: string): string {
@@ -29,6 +31,7 @@ export function generateLlmsTxt(repository: string): string {
     '- `data/audit.json`: Machine-actionable readiness checks, autonomy blockers, verify commands, and copyable fixes (schema: `schemas/audit-v1.json`)',
     '- `data/proof.json`: Cryptographic Tier-0 proof-lock integrity seal, Zone A/B/C status, tamper violations, and hash-chained changelog head (schema: `schemas/proof-v1.json`)',
     '- `data/gate.json`: Proof-Aware autonomous resolution circuit-breaker decision and active safety limits (schema: `schemas/gate-v1.json`)',
+    '- `data/economics.json`: People-vs-agents cost, time, quality, AGENTS.md compliance, budgets, savings, and uplift pay-off. Every figure is tagged measured or modeled; modeled figures are ranges (schema: `schemas/economics-v1.json`)',
     '',
     '## Example Agentic Queries (CLI)',
     '- `node src/cli.ts query status.summary`',
@@ -36,6 +39,7 @@ export function generateLlmsTxt(repository: string): string {
     '- `node src/cli.ts query "audit.checks[status!=pass,blocks_autonomy=true].id"`',
     '- `node src/cli.ts query proof.ok`',
     '- `node src/cli.ts query gate.decision`',
+    '- `node src/cli.ts query economics.savings.monthly_savings`',
     '',
   ].join('\n');
 }
@@ -77,6 +81,7 @@ export function publishUpliftSite(
   writeJson('data/audit.json', bundle.audit);
   writeJson('data/proof.json', bundle.proof);
   writeJson('data/gate.json', bundle.gate);
+  if (bundle.economics) writeJson('data/economics.json', bundle.economics);
 
   const llmsPath = path.join(outDir, 'llms.txt');
   fs.writeFileSync(llmsPath, generateLlmsTxt(bundle.status.repository));

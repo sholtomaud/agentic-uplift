@@ -1,0 +1,489 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-23T04:27:41Z",
+  "repository": "sholtomaud/agentic-uplift",
+  "mode": "local",
+  "readiness": {
+    "score": 95,
+    "autonomy": "autonomous-ready",
+    "passed": 20,
+    "improve": 1,
+    "missing": 1,
+    "waiting": 4,
+    "total": 26,
+    "blockers": [],
+    "groups": [
+      {
+        "group": "Proof integrity",
+        "score": 89,
+        "passed": 4,
+        "total": 5
+      },
+      {
+        "group": "Code and CI",
+        "score": 100,
+        "passed": 3,
+        "total": 5
+      },
+      {
+        "group": "Supply chain and security",
+        "score": 100,
+        "passed": 9,
+        "total": 9
+      },
+      {
+        "group": "Agent operating model",
+        "score": 100,
+        "passed": 2,
+        "total": 3
+      },
+      {
+        "group": "Issues and delivery",
+        "score": 100,
+        "passed": 2,
+        "total": 3
+      },
+      {
+        "group": "Observability and budgets",
+        "score": 0,
+        "passed": 0,
+        "total": 1
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "proof-lock",
+      "group": "Proof integrity",
+      "title": "Cryptographic proof-lock sealing tests and harness",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": true,
+      "status": "pass",
+      "evidence": "proof-lock.json is present and cryptographically intact.",
+      "why": "Prevents autonomous agents from silently editing or deleting existing tests or weakening verification scripts to force green CI.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts proof check --json",
+      "fixes": []
+    },
+    {
+      "id": "pr-tamper-gate",
+      "group": "Proof integrity",
+      "title": "Out-of-band PR base-branch tamper gate in CI",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": true,
+      "status": "pass",
+      "evidence": "Proof tamper gate active in .github/workflows/verify.yml.",
+      "why": "A local lockfile alone can be regenerated inside a PR; comparing against the trusted base branch makes test/harness tampering unforgeable.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts proof check --base origin/main --json",
+      "fixes": []
+    },
+    {
+      "id": "proof-changelog",
+      "group": "Proof integrity",
+      "title": "Hash-chained PROOF_CHANGELOG.md attestation ledger",
+      "kind": "setup",
+      "impact": "medium",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "PROOF_CHANGELOG.md hash chain is valid.",
+      "why": "Provides an append-only tamper-evident audit trail of verified commits and intentional harness/test re-seals.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts proof check --json",
+      "fixes": []
+    },
+    {
+      "id": "git-hooks",
+      "group": "Proof integrity",
+      "title": "Tracked pre-commit & pre-push verification bash hooks",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": false,
+      "status": "improve",
+      "evidence": ".githooks/pre-commit and .githooks/pre-push exist, but git core.hooksPath is not set locally.",
+      "why": "Blocks LLMs and developers locally from committing or pushing failing/untested code, saving CI cycles while CI remains the unbypassable boundary.",
+      "recommendation": "Track .githooks/pre-commit and .githooks/pre-push (sealed in proof-lock.json) and activate with git config core.hooksPath .githooks.",
+      "verify_command": "git config --get core.hooksPath",
+      "fixes": [
+        {
+          "path": ".githooks/pre-commit",
+          "language": "shell",
+          "content": "#!/usr/bin/env bash\nset -euo pipefail\n\n# Layer 1 local guardrail: blocks LLMs and developers from committing\n# untested, failing, or tamper-violating changes.\necho \"[agentic-uplift] Running pre-commit verification gate...\"\nif [ -f \"package.json\" ] && grep -q '\"verify:fast\"' package.json; then\n  npm run verify:fast\nelif [ -f \"package.json\" ] && grep -q '\"verify\"' package.json; then\n  npm run verify\nelse\n  npm test\nfi\n"
+        },
+        {
+          "path": ".githooks/pre-push",
+          "language": "shell",
+          "content": "#!/usr/bin/env bash\nset -euo pipefail\n\n# Layer 1 pre-push verification gate: runs full verification + proof check\n# before pushing commits to remote.\necho \"[agentic-uplift] Running full pre-push verification gate...\"\nif [ -f \"package.json\" ] && grep -q '\"verify\"' package.json; then\n  npm run verify\nelse\n  npm test\nfi\n"
+        },
+        {
+          "path": "",
+          "language": "shell",
+          "content": "git config core.hooksPath .githooks"
+        }
+      ]
+    },
+    {
+      "id": "codeowners-proof",
+      "group": "Proof integrity",
+      "title": "CODEOWNERS protects proof-lock, hooks, and CI workflows",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": true,
+      "status": "pass",
+      "evidence": ".github/CODEOWNERS requires human review for proof-lock.json, hooks, and workflows.",
+      "why": "Ensures an autonomous agent PR cannot modify verification workflows, git hooks, or lockfiles without explicit maintainer sign-off.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts audit --json",
+      "fixes": []
+    },
+    {
+      "id": "tests",
+      "group": "Code and CI",
+      "title": "Automated tests present in repository",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": true,
+      "status": "pass",
+      "evidence": "Found 24 automated test file(s) across 80 repository files.",
+      "why": "Autonomous edits without automated tests cannot be verified deterministically.",
+      "recommendation": "",
+      "verify_command": "npm test",
+      "fixes": []
+    },
+    {
+      "id": "ci-on-pr",
+      "group": "Code and CI",
+      "title": "CI runs automated verification on every pull request",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": true,
+      "status": "pass",
+      "evidence": "PR test verification runs in .github/workflows/verify.yml.",
+      "why": "PR CI is the non-bypassable execution boundary validating agent-authored code.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts verify --json",
+      "fixes": []
+    },
+    {
+      "id": "branch-protection",
+      "group": "Code and CI",
+      "title": "Default branch protection / required status checks",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": false,
+      "status": "waiting",
+      "evidence": "Branch protection requires GitHub API access (skipped in offline local mode).",
+      "why": "Prevents direct pushes to the default branch and enforces required CI + tamper-gate checks before merge.",
+      "recommendation": "Apply a branch ruleset on claude/project-thread-24xnrt requiring PR reviews, CODEOWNERS approval, and the 4-Tier Verification & PR Tamper Gate check(s).",
+      "verify_command": "gh api repos/sholtomaud/agentic-uplift/rulesets",
+      "fixes": [
+        {
+          "path": "",
+          "language": "shell",
+          "content": "gh api --method POST repos/sholtomaud/agentic-uplift/rulesets --input - <<'JSON'\n{\n  \"name\": \"Protect claude/project-thread-24xnrt for autonomous agents\",\n  \"target\": \"branch\",\n  \"enforcement\": \"active\",\n  \"bypass_actors\": [\n    {\n      \"actor_id\": 5,\n      \"actor_type\": \"RepositoryRole\",\n      \"bypass_mode\": \"pull_request\"\n    }\n  ],\n  \"conditions\": {\n    \"ref_name\": {\n      \"include\": [\n        \"refs/heads/claude/project-thread-24xnrt\"\n      ],\n      \"exclude\": []\n    }\n  },\n  \"rules\": [\n    {\n      \"type\": \"deletion\"\n    },\n    {\n      \"type\": \"non_fast_forward\"\n    },\n    {\n      \"type\": \"pull_request\",\n      \"parameters\": {\n        \"required_approving_review_count\": 1,\n        \"dismiss_stale_reviews_on_push\": true,\n        \"require_code_owner_review\": true,\n        \"require_last_push_approval\": false,\n        \"required_review_thread_resolution\": true\n      }\n    },\n    {\n      \"type\": \"required_status_checks\",\n      \"parameters\": {\n        \"strict_required_status_checks_policy\": true,\n        \"required_status_checks\": [\n          {\n            \"context\": \"4-Tier Verification & PR Tamper Gate\"\n          }\n        ]\n      }\n    }\n  ]\n}\nJSON"
+        }
+      ]
+    },
+    {
+      "id": "ci-health",
+      "group": "Code and CI",
+      "title": "Default-branch CI stays green",
+      "kind": "habit",
+      "impact": "high",
+      "blocks_autonomy": false,
+      "status": "waiting",
+      "evidence": "Waiting for GitHub Actions run history.",
+      "why": "Agents operating on a red default branch compound failures instead of converging.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query status.ci",
+      "fixes": []
+    },
+    {
+      "id": "uplift-config",
+      "group": "Code and CI",
+      "title": "Declarative uplift.config.json policy file",
+      "kind": "setup",
+      "impact": "medium",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "uplift.config.json defines proof zones, SLA limits, and gate policy.",
+      "why": "Gives both humans and agents a single typed source of truth for verification zones, limits, and circuit-breaker thresholds.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts audit --json",
+      "fixes": []
+    },
+    {
+      "id": "pinned-actions",
+      "group": "Supply chain and security",
+      "title": "GitHub Actions pinned to full 40-character commit SHAs",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "All third-party action references across 3 workflow(s) are pinned to commit SHAs.",
+      "why": "Prevents mutable tag hijacking in automated workflows that hold repository or agent credentials.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=pinned-actions]",
+      "fixes": []
+    },
+    {
+      "id": "workflow-permissions",
+      "group": "Supply chain and security",
+      "title": "Least-privilege permissions declared in every workflow",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "Every workflow declares explicit top-level `permissions:`.",
+      "why": "Limits blast radius of untrusted PRs or prompt-injected agent runs.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=workflow-permissions]",
+      "fixes": []
+    },
+    {
+      "id": "lockfiles",
+      "group": "Supply chain and security",
+      "title": "Dependency lockfile or zero third-party runtime dependencies",
+      "kind": "setup",
+      "impact": "medium",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "Zero third-party runtime dependencies declared (minimal supply-chain footprint).",
+      "why": "Ensures deterministic installs and prevents unexpected upstream supply-chain drift.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=lockfiles]",
+      "fixes": []
+    },
+    {
+      "id": "security-policy",
+      "group": "Supply chain and security",
+      "title": "SECURITY.md private vulnerability reporting policy",
+      "kind": "setup",
+      "impact": "low",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "SECURITY.md is present.",
+      "why": "Directs researchers to private reporting channels instead of public issues.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=security-policy]",
+      "fixes": []
+    },
+    {
+      "id": "install-scripts",
+      "group": "Supply chain and security",
+      "title": "Package install lifecycle scripts disabled by default",
+      "kind": "setup",
+      "impact": "medium",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "Zero third-party runtime dependencies declared; no install scripts can run.",
+      "why": "A compromised dependency runs arbitrary code at install time through preinstall/install/postinstall scripts, before any test or review.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=install-scripts]",
+      "fixes": []
+    },
+    {
+      "id": "secrets-in-package-jobs",
+      "group": "Supply chain and security",
+      "title": "Repository secrets kept out of jobs that run package code",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "No workflow job combines repository secrets with package installs or scripts.",
+      "why": "Any install script or transitive dependency running in a job can read every secret that job holds.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=secrets-in-package-jobs]",
+      "fixes": []
+    },
+    {
+      "id": "agent-jobs-isolated",
+      "group": "Supply chain and security",
+      "title": "Coding-agent API keys isolated from package code and shell tools",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "No coding-agent jobs detected.",
+      "why": "A prompt-injected agent with Bash, or a malicious package in the same job, can exfiltrate the model API key.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=agent-jobs-isolated]",
+      "fixes": []
+    },
+    {
+      "id": "checkout-persist-credentials",
+      "group": "Supply chain and security",
+      "title": "actions/checkout does not leave git tokens in .git/config",
+      "kind": "setup",
+      "impact": "low",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "Every non-pushing job checks out with persist-credentials: false.",
+      "why": "actions/checkout writes the job token to .git/config by default, where later package code can read it.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=checkout-persist-credentials]",
+      "fixes": []
+    },
+    {
+      "id": "socket-firewall",
+      "group": "Supply chain and security",
+      "title": "CI package installs screened at install time (Socket Firewall)",
+      "kind": "setup",
+      "impact": "medium",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "Zero third-party runtime dependencies (not applicable).",
+      "why": "PR-time dependency review misses malicious packages fetched directly in CI; install-time screening blocks confirmed malware before it runs.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=socket-firewall]",
+      "fixes": []
+    },
+    {
+      "id": "agents-md",
+      "group": "Agent operating model",
+      "title": "AGENTS.md operating model covers verification, TDD, security, and attribution",
+      "kind": "setup",
+      "impact": "high",
+      "blocks_autonomy": true,
+      "status": "pass",
+      "evidence": "AGENTS.md covers all 7 required operating topics.",
+      "why": "Gives every coding agent clear build/test commands, security boundaries (untrusted issue text), and non-negotiable proof rules.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=agents-md]",
+      "fixes": []
+    },
+    {
+      "id": "guarded-resolve-workflow",
+      "group": "Agent operating model",
+      "title": "Autonomous issue resolution guarded by circuit breaker",
+      "kind": "setup",
+      "impact": "medium",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "Circuit-broken resolution workflow found in .github/workflows/agent-resolve.yml.",
+      "why": "Serializes agent runs and automatically pauses when the proof seal breaks, open agent PRs hit the cap, budgets trip, or main CI goes red.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts gate --json",
+      "fixes": []
+    },
+    {
+      "id": "agent-attribution",
+      "group": "Agent operating model",
+      "title": "Agent work attributed via account or Co-Authored-By trailers",
+      "kind": "habit",
+      "impact": "low",
+      "blocks_autonomy": false,
+      "status": "waiting",
+      "evidence": "Waiting for PR/commit attribution history (requires GitHub API mode).",
+      "why": "Measures whether AI agents actually reduce backlog and maintain quality over time.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query status.pulls",
+      "fixes": []
+    },
+    {
+      "id": "issue-forms",
+      "group": "Issues and delivery",
+      "title": "Structured GitHub issue forms for triage and SLAs",
+      "kind": "setup",
+      "impact": "medium",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "Structured issue templates found under .github/ISSUE_TEMPLATE/.",
+      "why": "Labels issues consistently (security, bug, enhancement) so agents and SLA monitors prioritize accurately.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=issue-forms]",
+      "fixes": []
+    },
+    {
+      "id": "pr-template",
+      "group": "Issues and delivery",
+      "title": "Pull request template requiring linked issues and verification summary",
+      "kind": "setup",
+      "impact": "low",
+      "blocks_autonomy": false,
+      "status": "pass",
+      "evidence": "Pull request template is present.",
+      "why": "Standardizes `Fixes #123` links and verification proof summaries across human and agent PRs.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query audit.checks[id=pr-template]",
+      "fixes": []
+    },
+    {
+      "id": "linked-fixes",
+      "group": "Issues and delivery",
+      "title": "Closed issues link back to a verifiable fix",
+      "kind": "habit",
+      "impact": "medium",
+      "blocks_autonomy": false,
+      "status": "waiting",
+      "evidence": "Waiting for at least 5 closed issues to evaluate closure verification rate.",
+      "why": "Separates real fixes from silent closures without commits or PRs.",
+      "recommendation": "",
+      "verify_command": "node src/cli.ts query status.issues",
+      "fixes": []
+    },
+    {
+      "id": "cost-and-budgets",
+      "group": "Observability and budgets",
+      "title": "Agentic spend and budget guardrails configured",
+      "kind": "setup",
+      "impact": "low",
+      "blocks_autonomy": false,
+      "status": "missing",
+      "evidence": "No monthly agentic budget configured yet.",
+      "why": "Prevents runaway autonomous API/CI loops by letting resolve-gate trip automatically at budget limits.",
+      "recommendation": "Configure monthly-agentic-budget in your uplift workflow or uplift.config.json.",
+      "verify_command": "node src/cli.ts gate --json",
+      "fixes": []
+    }
+  ],
+  "manual_commands": [
+    {
+      "id": "branch-rules",
+      "title": "Protect claude/project-thread-24xnrt with PR review, CODEOWNERS & Tamper Gate",
+      "category": "github-settings",
+      "status": "recommended",
+      "check_id": "branch-protection",
+      "why": "Makes the CI verification & PR tamper gate checks an unbypassable merge boundary on GitHub.",
+      "command": "gh api --method POST repos/sholtomaud/agentic-uplift/rulesets --input - <<'JSON'\n{\n  \"name\": \"Protect claude/project-thread-24xnrt for autonomous agents\",\n  \"target\": \"branch\",\n  \"enforcement\": \"active\",\n  \"bypass_actors\": [\n    {\n      \"actor_id\": 5,\n      \"actor_type\": \"RepositoryRole\",\n      \"bypass_mode\": \"pull_request\"\n    }\n  ],\n  \"conditions\": {\n    \"ref_name\": {\n      \"include\": [\n        \"refs/heads/claude/project-thread-24xnrt\"\n      ],\n      \"exclude\": []\n    }\n  },\n  \"rules\": [\n    {\n      \"type\": \"deletion\"\n    },\n    {\n      \"type\": \"non_fast_forward\"\n    },\n    {\n      \"type\": \"pull_request\",\n      \"parameters\": {\n        \"required_approving_review_count\": 1,\n        \"dismiss_stale_reviews_on_push\": true,\n        \"require_code_owner_review\": true,\n        \"require_last_push_approval\": false,\n        \"required_review_thread_resolution\": true\n      }\n    },\n    {\n      \"type\": \"required_status_checks\",\n      \"parameters\": {\n        \"strict_required_status_checks_policy\": true,\n        \"required_status_checks\": [\n          {\n            \"context\": \"4-Tier Verification & PR Tamper Gate\"\n          }\n        ]\n      }\n    }\n  ]\n}\nJSON"
+    },
+    {
+      "id": "tamper-labels",
+      "title": "Create tamper-override & autonomous-triage labels",
+      "category": "labels",
+      "status": "recommended",
+      "check_id": "pr-tamper-gate",
+      "why": "Enables maintainer-controlled override labels (allow-test-change, allow-harness-change) and agent issue queues (agentic-uplift, agent-ready).",
+      "command": "gh label create allow-test-change -R sholtomaud/agentic-uplift --color B60205 --description \"Maintainer-approved change to locked tests\" --force\ngh label create allow-harness-change -R sholtomaud/agentic-uplift --color D93F0B --description \"Maintainer-approved change to verification harness\" --force\ngh label create agentic-uplift -R sholtomaud/agentic-uplift --color 0E8A16 --description \"Automated uplift finding tracked by agentic-uplift\" --force\ngh label create agent-ready -R sholtomaud/agentic-uplift --color 1D76DB --description \"Approved by maintainer for guarded autonomous resolution\" --force"
+    },
+    {
+      "id": "github-pages",
+      "title": "Enable GitHub Pages (GitHub Actions source) for live cockpit & JSON API",
+      "category": "github-settings",
+      "status": "recommended",
+      "check_id": null,
+      "why": "Publishes data/{status,audit,proof,gate}.json, schemas/*-v1.json, llms.txt, and the flight-deck cockpit.",
+      "command": "gh api --method POST repos/sholtomaud/agentic-uplift/pages -f build_type=workflow || gh api --method PUT repos/sholtomaud/agentic-uplift/pages -f build_type=workflow"
+    },
+    {
+      "id": "local-hooks",
+      "title": "Activate local pre-commit & pre-push verification hooks on your machine",
+      "category": "local-hooks",
+      "status": "required",
+      "check_id": "git-hooks",
+      "why": "Blocks LLMs and developers locally from committing or pushing failing or tampered code before CI even runs.",
+      "command": "node src/cli.ts hooks install"
+    },
+    {
+      "id": "resolver-secret",
+      "title": "Configure model API key secret for guarded autonomous issue resolution",
+      "category": "secrets",
+      "status": "recommended",
+      "check_id": "guarded-resolve-workflow",
+      "why": "Allows .github/workflows/agent-resolve.yml to resolve agent-ready issues when the Proof-Aware circuit breaker opens.",
+      "command": "gh secret set ANTHROPIC_API_KEY -R sholtomaud/agentic-uplift"
+    }
+  ]
+}
