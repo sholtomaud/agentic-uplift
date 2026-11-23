@@ -58,6 +58,20 @@
         "zero_runtime_deps": { "type": ["boolean", "null"] }
       }
     },
+    "attribution": {
+      "description": "Measured (never modeled) people-vs-agents attribution coverage; counts are lower bounds. Null in local mode.",
+      "type": ["object", "null"],
+      "required": ["basis", "lower_bound", "sources", "issues_sampled", "pulls_sampled", "commits_sampled", "caveat"],
+      "properties": {
+        "basis": { "const": "measured" },
+        "lower_bound": { "const": true },
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "issues_sampled": { "type": "integer", "minimum": 0 },
+        "pulls_sampled": { "type": "integer", "minimum": 0 },
+        "commits_sampled": { "type": "integer", "minimum": 0 },
+        "caveat": { "type": "string" }
+      }
+    },
     "proof": {
       "type": "object",
       "required": [

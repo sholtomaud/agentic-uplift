@@ -470,7 +470,9 @@ class UpliftCockpit extends HTMLElement {
               <dt>Monthly agent budget</dt><dd class="tabular">${gate.constraints.agentic_monthly_budget !== null ? `$${gate.constraints.agentic_monthly_budget}` : 'unset'}</dd>
               <dt>7d bug doom ratio</dt><dd class="tabular">${status.issues && status.issues.doom_loop_ratio_7d !== null ? `${status.issues.doom_loop_ratio_7d}×` : '—'}</dd>
               <dt>Zero runtime deps</dt><dd>${status.repo.zero_runtime_deps === true ? 'YES' : status.repo.zero_runtime_deps === false ? 'NO' : '—'}</dd>
+              <dt>Agent-resolved issues</dt><dd class="tabular">${status.issues ? `≥ ${status.issues.closed_by_agent + (status.issues.closed_agent_assisted ?? 0)} / ${status.issues.closed}` : '—'}</dd>
             </dl>
+            ${status.attribution ? `<p class="attribution-caveat"><strong>Measured lower bound.</strong> ${escapeHtml(status.attribution.caveat)} Sampled ${status.attribution.issues_sampled} issues, ${status.attribution.pulls_sampled} PRs, ${status.attribution.commits_sampled} commits.</p>` : ''}
           </article>
         </section>
 

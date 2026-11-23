@@ -32,7 +32,7 @@ outputs:
     value: ${{ inputs.out-dir }}
   page-url:
     description: Deployed GitHub Pages URL (when deploy-pages is true).
-    value: ${{ steps.deploy.outputs.page_url }}
+    value: ${{ steps.deploy.outputs.page_url || steps.deploy-retry.outputs.page_url }}
 
 runs:
   using: composite
@@ -55,6 +55,7 @@ runs:
           --github
 
     - name: Upload GitHub Pages Artifact
+      id: upload
       if: inputs.deploy-pages == 'true'
       uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
       with:
@@ -65,22 +66,40 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
+        ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
       run: |
+        # REST visibility of the uploaded artifact (matched by id when known).
         for i in 1 2 3 4 5 6 7 8; do
-          count=$(curl -fsSL \
+          found=$(curl -fsSL \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
             "${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?name=github-pages" \
-            | node -e "const d = JSON.parse(require('node:fs').readFileSync(0,'utf8')); console.log(d.total_count || 0);" 2>/dev/null || echo 0)
-          if [ "$count" -ge 1 ]; then
-            echo "Artifact github-pages indexed (count=$count)."
-            exit 0
+            | node -e "const d = JSON.parse(require('node:fs').readFileSync(0,'utf8')); const want = process.env.ARTIFACT_ID; const list = Array.isArray(d.artifacts) ? d.artifacts : []; console.log(want ? (list.some((a) => String(a.id) === want) ? 1 : 0) : (d.total_count || 0));" 2>/dev/null || echo 0)
+          if [ "$found" -ge 1 ]; then
+            echo "Artifact github-pages indexed (artifact_id=${ARTIFACT_ID:-unknown})."
+            break
           fi
           echo "Waiting for github-pages artifact index (attempt $i)..."
           sleep 2
         done
+        # deploy-pages queries the internal Actions Results service once with no
+        # retry; give that backend time to catch up with the REST index.
+        sleep 5
 
     - name: Deploy to GitHub Pages
       id: deploy
       if: inputs.deploy-pages == 'true'
+      continue-on-error: true
+      uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+    - name: Wait before retrying GitHub Pages deploy
+      if: inputs.deploy-pages == 'true' && steps.deploy.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "First deploy-pages attempt failed; retrying once after 15s..."
+        sleep 15
+
+    - name: Retry Deploy to GitHub Pages
+      id: deploy-retry
+      if: inputs.deploy-pages == 'true' && steps.deploy.outcome == 'failure'
       uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

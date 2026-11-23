@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rootSha256": "700bb8c95279b0628759e0ee4685c1a9e37f7c7efee8677fefc39c39822ea51e",
+  "rootSha256": "cead0392e20307e3969d62a953e125f26a03125b37c3a8cde32fb5c8810e3c6b",
   "metricFloors": {
-    "minUnitTests": 23,
-    "minPropertyTests": 5,
+    "minUnitTests": 68,
+    "minPropertyTests": 8,
     "minArchRules": 9,
     "maxSkippedTests": 0
   },
@@ -64,6 +64,11 @@
       "sha256": "f96bba9c7e0b018766d748c18de964c5a2bfe6919a96e04dc1177571c4bc0897"
     },
     {
+      "path": "tests/properties/agent-attribution.prop.test.ts",
+      "zone": "tests",
+      "sha256": "e52fa4aa3c0252ee4c781475096811973e042c088ca9b63701eb5d8c308c605b"
+    },
+    {
       "path": "tests/properties/audit-engine.prop.test.ts",
       "zone": "tests",
       "sha256": "614f1e17ab10d77bde6e0919adb85de1bea09a3cb8ae2139d5bdf07b35ce3d87"
@@ -84,6 +89,21 @@
       "sha256": "b8a07ec92d3a7c9250f85e11cbc3bc08756da7b5a5b8ad14c379ef4ccb0a72c8"
     },
     {
+      "path": "tests/properties/workflow-jobs.prop.test.ts",
+      "zone": "tests",
+      "sha256": "00a41d577771731d310ae9546e7ffadcfb0a84b87a13eb3fffc43c4c6ac32224"
+    },
+    {
+      "path": "tests/unit/action-deploy.test.ts",
+      "zone": "tests",
+      "sha256": "a7137e064d7744b85f9b1d48d7989a758b527ccc3c7cd23fdc327bd8357404e7"
+    },
+    {
+      "path": "tests/unit/agent-attribution.test.ts",
+      "zone": "tests",
+      "sha256": "acc8eea5de96baf4db6be5fd0204eb14fcf294f8c2ef809ee35553b124fc0e04"
+    },
+    {
       "path": "tests/unit/arch-check.test.ts",
       "zone": "tests",
       "sha256": "0a1a979c7fdd7bfcbfffcee95877863cac55e5860b9ec58aafd38a66b88d2a0b"
@@ -94,6 +114,16 @@
       "sha256": "4609070acb54a3aa5de7b69be93a95fc2c18e98acaa34b0651befde02076ec92"
     },
     {
+      "path": "tests/unit/audit-roundtrip.test.ts",
+      "zone": "tests",
+      "sha256": "6632946010972ca11df137b10425eb7b65ff3f2747be3758177ea4b34e9e59fb"
+    },
+    {
+      "path": "tests/unit/audit-signal-quality.test.ts",
+      "zone": "tests",
+      "sha256": "535b18c374ccffa5c37d119f939d846ff5950d19c693fc430ef77264694c4210"
+    },
+    {
       "path": "tests/unit/check-rules.test.ts",
       "zone": "tests",
       "sha256": "7c51c36f5d72a9cdeb1e86806534f2e7f086252bd14948a19e5d6153903be76c"
@@ -102,6 +132,11 @@
       "path": "tests/unit/cli.test.ts",
       "zone": "tests",
       "sha256": "97417a51802077fa733b2acbdeed1c91dc9fd6f25157b3c574af65ae8ce6ed4e"
+    },
+    {
+      "path": "tests/unit/github-collector.test.ts",
+      "zone": "tests",
+      "sha256": "2b849f3beabb2915ec1070290047834e249872ae954278cfed389f1dbb306135"
     },
     {
       "path": "tests/unit/json-schema.test.ts",
@@ -122,6 +157,16 @@
       "path": "tests/unit/resolve-gate.test.ts",
       "zone": "tests",
       "sha256": "022f47e3350b9137e9179f86396e9c809b792d9adfcb7717c5784f70d4f90bac"
+    },
+    {
+      "path": "tests/unit/site-layout.test.ts",
+      "zone": "tests",
+      "sha256": "04e329f5b666315b73bcf20efa4c3780a5a7ee92c6227ae37309cb4535af690f"
+    },
+    {
+      "path": "tests/unit/supply-chain-checks.test.ts",
+      "zone": "tests",
+      "sha256": "f4ed9da26d3697cbf21c4db15381798ab605c4b90b089bd35684332eb6e6903e"
     },
     {
       "path": "tsconfig.json",

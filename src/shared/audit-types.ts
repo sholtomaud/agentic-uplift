@@ -21,7 +21,10 @@ export type AuditGroup = (typeof AUDIT_GROUPS)[number];
 
 /** Machine-actionable remediation artifact (file to create/update or shell command). */
 export interface AuditFix {
-  /** Target repository path; empty string means run as a shell command. */
+  /**
+   * Target repository path. Empty string means the content is not a whole
+   * file: a shell command (`language: 'shell'`) or a snippet to merge by hand.
+   */
   readonly path: string;
   readonly language: 'yaml' | 'json' | 'markdown' | 'shell' | 'text';
   readonly content: string;
@@ -101,6 +104,31 @@ export const AGENT_DOC_TOPICS = [
 
 export type AgentDocTopic = (typeof AGENT_DOC_TOPICS)[number];
 
+/** Per-job supply-chain signals. Booleans only: secret names are never recorded. */
+export interface WorkflowJobSummary {
+  /** Job id (key under `jobs:`). */
+  readonly name: string;
+  /** Status-check context GitHub reports for this job (`name:` or the job id). */
+  readonly checkName: string;
+  /** References repository secrets other than GITHUB_TOKEN, or `secrets: inherit`. */
+  readonly usesSecrets: boolean;
+  /** Holds a coding-agent / LLM provider API key. */
+  readonly usesAgentApiKey: boolean;
+  /** Runs a coding agent (known agent action or agent API key present). */
+  readonly isAgentJob: boolean;
+  /** Grants the agent shell/Bash tools or disables its permission prompts. */
+  readonly agentShellTools: boolean;
+  readonly installsPackages: boolean;
+  readonly runsPackageScripts: boolean;
+  readonly usesCheckout: boolean;
+  /** At least one actions/checkout step lacks `persist-credentials: false`. */
+  readonly checkoutPersistsCredentials: boolean;
+  /** Job can write to the repository (contents: write, write-all, git push). */
+  readonly pushes: boolean;
+  /** Installs are screened by Socket Firewall (socketdev/action firewall mode or `sfw`). */
+  readonly socketFirewall: boolean;
+}
+
 export interface WorkflowSummary {
   readonly path: string;
   readonly triggers: readonly string[];
@@ -109,6 +137,8 @@ export interface WorkflowSummary {
   readonly hasResolveGate: boolean;
   readonly hasPermissions: boolean;
   readonly unpinnedActions: readonly string[];
+  /** Per-job signals (absent for profiles built before job analysis existed). */
+  readonly jobs?: readonly WorkflowJobSummary[];
 }
 
 /** Normalized repository profile built from either local filesystem or GitHub API. */
@@ -142,6 +172,10 @@ export interface RepoProfile {
   readonly hasDependencyReview: boolean;
   readonly hasUpliftConfig: boolean;
   readonly hasZeroRuntimeDeps: boolean | null;
+  /** npm/yarn/pnpm lifecycle scripts disabled repo-wide (.npmrc, .yarnrc.yml, pnpm-workspace.yaml). */
+  readonly npmIgnoreScripts?: boolean;
+  /** Lockfile packages flagged `hasInstallScript: true` (package names only). */
+  readonly installScriptPackages?: readonly string[];
   readonly branchProtectionEnabled: boolean | null;
   readonly workflows: readonly WorkflowSummary[];
   /** Optional live operational metrics (null when running purely offline/local). */

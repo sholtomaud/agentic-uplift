@@ -254,6 +254,7 @@ async function computeControlPlaneBundle(
   let mode: 'local' | 'github' = 'local';
   let issuesMetric = null;
   let pullsMetric = null;
+  let attributionMetric = null;
   let ciMetric = null;
   let deliveryMetric = null;
   let openGateIssues: readonly GateIssue[] = [];
@@ -286,6 +287,7 @@ async function computeControlPlaneBundle(
     };
     issuesMetric = telemetry.issues;
     pullsMetric = telemetry.pulls;
+    attributionMetric = telemetry.attribution;
     ciMetric = telemetry.ci;
     deliveryMetric = telemetry.delivery;
     openGateIssues = telemetry.openGateIssues;
@@ -360,6 +362,7 @@ async function computeControlPlaneBundle(
     },
     issues: issuesMetric,
     pulls: pullsMetric,
+    attribution: attributionMetric,
     ci: ciMetric,
     delivery: deliveryMetric,
     readiness: audit.readiness,

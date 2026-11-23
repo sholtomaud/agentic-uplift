@@ -26,7 +26,25 @@ const PINNED_ACTIONS = {
     'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0',
   dependencyReview:
     'actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0',
+  socketFirewall:
+    'SocketDev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2',
+  proofGate:
+    'sholtomaud/agentic-uplift/actions/proof-gate@998da747e95cc0d2afc47dbb71372e136517c474 # main (2026-11-21)',
 } as const;
+
+/** Check-run name of the job emitted by the proof-gate workflow fix. */
+const PROOF_GATE_CHECK_NAME = 'Proof Tamper Gate';
+
+/** Ecosystems Socket Firewall (`sfw`) can screen at install time. */
+const SOCKET_FIREWALL_ECOSYSTEMS: readonly string[] = ['npm', 'python', 'cargo'];
+
+const SOCKET_FIREWALL_SNIPPET = `# Add before package installs in each job flagged above.
+# Note: cached artifacts (actions/cache, setup-node cache) bypass network inspection.
+- uses: ${PINNED_ACTIONS.socketFirewall}
+  with:
+    mode: firewall
+- run: sfw npm ci   # or: sfw pip install -r requirements.txt / sfw cargo fetch
+`;
 
 const PRE_COMMIT_HOOK_TEMPLATE = `#!/usr/bin/env bash
 set -euo pipefail
@@ -66,12 +84,13 @@ permissions:
 
 jobs:
   proof-gate:
+    name: ${PROOF_GATE_CHECK_NAME}
     runs-on: ubuntu-latest
     steps:
       - uses: ${PINNED_ACTIONS.checkout}
         with:
           persist-credentials: false
-      - uses: sholtomaud/agentic-uplift/actions/proof-gate@v1
+      - uses: ${PINNED_ACTIONS.proofGate}
         with:
           base-ref: origin/\${{ github.base_ref }}
 `;
@@ -101,7 +120,25 @@ function repoSlug(repository: string): string {
   return repository.includes('/') ? repository : `<owner>/${repository}`;
 }
 
-function buildBranchRulesetCommand(repository: string, branch: string): string {
+/**
+ * Status-check contexts the branch ruleset should require: the check names of
+ * jobs in pull_request proof-gate workflows, or the name the proof-gate
+ * workflow fix will create when none exist yet.
+ */
+export function requiredStatusCheckNames(profile: RepoProfile): string[] {
+  const names = new Set<string>();
+  for (const w of profile.workflows) {
+    if (!w.hasProofGate || !w.triggers.includes('pull_request')) continue;
+    for (const job of w.jobs ?? []) names.add(job.checkName || job.name);
+  }
+  return names.size > 0 ? [...names] : [PROOF_GATE_CHECK_NAME];
+}
+
+function buildBranchRulesetCommand(
+  repository: string,
+  branch: string,
+  requiredChecks: readonly string[]
+): string {
   const slug = repoSlug(repository);
   return [
     `gh api --method POST repos/${slug}/rulesets --input - <<'JSON'`,
@@ -137,9 +174,9 @@ function buildBranchRulesetCommand(repository: string, branch: string): string {
             type: 'required_status_checks',
             parameters: {
               strict_required_status_checks_policy: true,
-              required_status_checks: [
-                { context: '4-Tier Verification & PR Tamper Gate' },
-              ],
+              required_status_checks: requiredChecks.map((context) => ({
+                context,
+              })),
             },
           },
         ],
@@ -415,9 +452,11 @@ export function runUpliftAudit(
     fixes: [],
   });
 
+  const requiredChecks = requiredStatusCheckNames(profile);
   const branchRulesetCmd = buildBranchRulesetCommand(
     profile.repository,
-    profile.defaultBranch
+    profile.defaultBranch,
+    requiredChecks
   );
   const slug = repoSlug(profile.repository);
 
@@ -446,7 +485,7 @@ export function runUpliftAudit(
     recommendation:
       profile.branchProtectionEnabled === true
         ? ''
-        : `Apply a branch ruleset on ${profile.defaultBranch} requiring PR reviews, CODEOWNERS approval, and the 4-Tier Verification & PR Tamper Gate check.`,
+        : `Apply a branch ruleset on ${profile.defaultBranch} requiring PR reviews, CODEOWNERS approval, and the ${requiredChecks.join(', ')} check(s).`,
     verify_command: `gh api repos/${slug}/rulesets`,
     fixes:
       profile.branchProtectionEnabled === true
@@ -519,8 +558,18 @@ export function runUpliftAudit(
                     '.githooks/pre-commit',
                     '.githooks/pre-push',
                   ],
-                  testRoots: ['tests'],
-                  testFilePatterns: ['.test.ts', '.spec.ts', '_test.go', '_test.py'],
+                  // Superset of the scanner defaults so adopting the config never narrows test discovery.
+                  testRoots: ['tests', 'test', 'src', 'e2e'],
+                  testFilePatterns: [
+                    '.test.ts',
+                    '.prop.test.ts',
+                    '.spec.ts',
+                    '.test.js',
+                    '.spec.js',
+                    '_test.py',
+                    '_test.go',
+                    '_test.rs',
+                  ],
                 },
                 limits: { securityDays: 7, bugDays: 30, featureDays: 180 },
                 gate: { maxOpenAgentPrs: 2, requireProofSeal: true },
@@ -642,6 +691,178 @@ export function runUpliftAudit(
               '# Security Policy\n\nPlease report security vulnerabilities privately via GitHub Security Advisories instead of opening a public issue.\n',
           },
         ],
+  });
+
+  // --- Secret reachability & install-time screening (#9, #7) ---
+  const jobRefs = profile.workflows.flatMap((w) =>
+    (w.jobs ?? []).map((job) => ({ ref: `${w.path}#${job.name}`, job }))
+  );
+  const runsPackages = (j: { installsPackages: boolean; runsPackageScripts: boolean }): boolean =>
+    j.installsPackages || j.runsPackageScripts;
+
+  const isNpm = profile.ecosystems.includes('npm');
+  const installScriptPkgs = profile.installScriptPackages ?? [];
+  const installScriptsPass =
+    !isNpm || profile.hasZeroRuntimeDeps === true || profile.npmIgnoreScripts === true;
+  checks.push({
+    id: 'install-scripts',
+    group: 'Supply chain and security',
+    title: 'Package install lifecycle scripts disabled by default',
+    kind: 'setup',
+    impact: 'medium',
+    blocks_autonomy: false,
+    status: installScriptsPass ? 'pass' : 'improve',
+    evidence: !isNpm
+      ? 'No npm-family ecosystem detected (not applicable).'
+      : profile.hasZeroRuntimeDeps === true
+        ? 'Zero third-party runtime dependencies declared; no install scripts can run.'
+        : profile.npmIgnoreScripts === true
+          ? 'Install lifecycle scripts are disabled (ignore-scripts / enableScripts: false / ignoreScripts: true).'
+          : installScriptPkgs.length > 0
+            ? `Install scripts enabled; ${installScriptPkgs.length} lockfile package(s) declare install scripts: ${installScriptPkgs.slice(0, 5).join(', ')}${installScriptPkgs.length > 5 ? ', …' : ''}.`
+            : 'Install lifecycle scripts are enabled (no ignore-scripts=true in .npmrc).',
+    why: 'A compromised dependency runs arbitrary code at install time through preinstall/install/postinstall scripts, before any test or review.',
+    recommendation: installScriptsPass
+      ? ''
+      : 'Set ignore-scripts=true in .npmrc (or enableScripts: false in .yarnrc.yml / ignoreScripts: true in pnpm-workspace.yaml) and allow-list packages that genuinely need a build step.',
+    verify_command: 'node src/cli.ts query audit.checks[id=install-scripts]',
+    fixes: installScriptsPass
+      ? []
+      : [{ path: '.npmrc', language: 'text', content: 'ignore-scripts=true\n' }],
+  });
+
+  const secretPackageJobs = jobRefs
+    .filter(({ job }) => job.usesSecrets && runsPackages(job))
+    .map(({ ref }) => ref);
+  checks.push({
+    id: 'secrets-in-package-jobs',
+    group: 'Supply chain and security',
+    title: 'Repository secrets kept out of jobs that run package code',
+    kind: 'setup',
+    impact: 'high',
+    blocks_autonomy: false,
+    status:
+      profile.workflows.length === 0
+        ? 'waiting'
+        : secretPackageJobs.length === 0
+          ? 'pass'
+          : 'improve',
+    evidence:
+      profile.workflows.length === 0
+        ? 'No workflows present yet.'
+        : secretPackageJobs.length === 0
+          ? 'No workflow job combines repository secrets with package installs or scripts.'
+          : `${secretPackageJobs.length} job(s) expose repository secrets to package code: ${secretPackageJobs.slice(0, 5).join(', ')}.`,
+    why: 'Any install script or transitive dependency running in a job can read every secret that job holds.',
+    recommendation:
+      secretPackageJobs.length > 0
+        ? 'Split jobs so the one that installs or runs packages holds no secrets beyond GITHUB_TOKEN; pass build outputs to a separate secret-holding job via artifacts.'
+        : '',
+    verify_command: 'node src/cli.ts query audit.checks[id=secrets-in-package-jobs]',
+    fixes: [],
+  });
+
+  const agentJobs = jobRefs.filter(({ job }) => job.isAgentJob);
+  const exposedAgentJobs = agentJobs
+    .filter(
+      ({ job }) =>
+        job.usesAgentApiKey && (runsPackages(job) || job.agentShellTools)
+    )
+    .map(({ ref }) => ref);
+  checks.push({
+    id: 'agent-jobs-isolated',
+    group: 'Supply chain and security',
+    title: 'Coding-agent API keys isolated from package code and shell tools',
+    kind: 'setup',
+    impact: 'high',
+    blocks_autonomy: false,
+    status:
+      profile.workflows.length === 0
+        ? 'waiting'
+        : exposedAgentJobs.length === 0
+          ? 'pass'
+          : 'improve',
+    evidence:
+      profile.workflows.length === 0
+        ? 'No workflows present yet.'
+        : agentJobs.length === 0
+          ? 'No coding-agent jobs detected.'
+          : exposedAgentJobs.length === 0
+            ? `${agentJobs.length} coding-agent job(s) hold API keys without package installs or shell tools.`
+            : `${exposedAgentJobs.length} coding-agent job(s) hold an API key while installing packages or granting shell tools: ${exposedAgentJobs.slice(0, 5).join(', ')}.`,
+    why: 'A prompt-injected agent with Bash, or a malicious package in the same job, can exfiltrate the model API key.',
+    recommendation:
+      exposedAgentJobs.length > 0
+        ? 'Run coding agents in a job that does not install packages, restrict allowed tools (no unrestricted Bash), and keep the API key out of package-running steps.'
+        : '',
+    verify_command: 'node src/cli.ts query audit.checks[id=agent-jobs-isolated]',
+    fixes: [],
+  });
+
+  const persistingJobs = jobRefs
+    .filter(({ job }) => job.checkoutPersistsCredentials && !job.pushes)
+    .map(({ ref }) => ref);
+  checks.push({
+    id: 'checkout-persist-credentials',
+    group: 'Supply chain and security',
+    title: 'actions/checkout does not leave git tokens in .git/config',
+    kind: 'setup',
+    impact: 'low',
+    blocks_autonomy: false,
+    status:
+      profile.workflows.length === 0
+        ? 'waiting'
+        : persistingJobs.length === 0
+          ? 'pass'
+          : 'improve',
+    evidence:
+      profile.workflows.length === 0
+        ? 'No workflows present yet.'
+        : persistingJobs.length === 0
+          ? 'Every non-pushing job checks out with persist-credentials: false.'
+          : `${persistingJobs.length} non-pushing job(s) persist checkout credentials: ${persistingJobs.slice(0, 5).join(', ')}.`,
+    why: 'actions/checkout writes the job token to .git/config by default, where later package code can read it.',
+    recommendation:
+      persistingJobs.length > 0
+        ? 'Add `with: persist-credentials: false` to actions/checkout in jobs that do not push.'
+        : '',
+    verify_command: 'node src/cli.ts query audit.checks[id=checkout-persist-credentials]',
+    fixes: [],
+  });
+
+  const firewallApplicable =
+    profile.hasZeroRuntimeDeps !== true &&
+    profile.ecosystems.some((e) => SOCKET_FIREWALL_ECOSYSTEMS.includes(e));
+  const unscreenedInstallJobs = firewallApplicable
+    ? jobRefs
+        .filter(({ job }) => job.installsPackages && !job.socketFirewall)
+        .map(({ ref }) => ref)
+    : [];
+  checks.push({
+    id: 'socket-firewall',
+    group: 'Supply chain and security',
+    title: 'CI package installs screened at install time (Socket Firewall)',
+    kind: 'setup',
+    impact: 'medium',
+    blocks_autonomy: false,
+    status: unscreenedInstallJobs.length === 0 ? 'pass' : 'improve',
+    evidence: !firewallApplicable
+      ? profile.hasZeroRuntimeDeps === true
+        ? 'Zero third-party runtime dependencies (not applicable).'
+        : 'No npm, Python, or Cargo ecosystem detected (not applicable).'
+      : unscreenedInstallJobs.length === 0
+        ? 'No unscreened package installs found in CI workflows.'
+        : `${unscreenedInstallJobs.length} job(s) install packages without Socket Firewall: ${unscreenedInstallJobs.slice(0, 5).join(', ')}.`,
+    why: 'PR-time dependency review misses malicious packages fetched directly in CI; install-time screening blocks confirmed malware before it runs.',
+    recommendation:
+      unscreenedInstallJobs.length > 0
+        ? 'Add SocketDev/action (mode: firewall) and prefix installs with `sfw`. Cached artifacts bypass network inspection.'
+        : '',
+    verify_command: 'node src/cli.ts query audit.checks[id=socket-firewall]',
+    fixes:
+      unscreenedInstallJobs.length > 0
+        ? [{ path: '', language: 'yaml', content: SOCKET_FIREWALL_SNIPPET }]
+        : [],
   });
 
   // --- Group 4: Agent operating model ---
@@ -913,10 +1134,11 @@ export function buildManualUpliftCommands(
           ? 'required'
           : 'recommended',
     check_id: 'branch-protection',
-    why: 'Makes the CI 4-Tier Verification & PR Tamper Gate an unbypassable merge boundary on GitHub.',
+    why: 'Makes the CI verification & PR tamper gate checks an unbypassable merge boundary on GitHub.',
     command: buildBranchRulesetCommand(
       profile.repository,
-      profile.defaultBranch
+      profile.defaultBranch,
+      requiredStatusCheckNames(profile)
     ),
   });
 
