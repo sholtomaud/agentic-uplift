@@ -13,6 +13,10 @@ export interface IssueMetrics {
   readonly closed: number;
   readonly closed_by_agent: number;
   readonly closed_by_human: number;
+  /** Human-closed issues whose closing PR/commit carries agent attribution. */
+  readonly closed_agent_assisted: number;
+  /** Issues opened by an agent account or disclosed as agent-filed. */
+  readonly opened_by_agent: number;
   readonly fix_referenced: number;
   readonly doom_loop_ratio_7d: number | null;
   readonly agent_resolution_share: number | null;
@@ -26,6 +30,20 @@ export interface PullMetrics {
   readonly merged_assisted_prs: number;
   readonly merged_human_prs: number;
   readonly median_hours_to_merge: number | null;
+}
+
+/**
+ * How people-vs-agents attribution was measured. Every figure derived from it
+ * is an observed lower bound from GitHub records, never a modeled estimate.
+ */
+export interface AttributionCoverage {
+  readonly basis: 'measured';
+  readonly lower_bound: true;
+  readonly sources: readonly string[];
+  readonly issues_sampled: number;
+  readonly pulls_sampled: number;
+  readonly commits_sampled: number;
+  readonly caveat: string;
 }
 
 export interface CiHealthMetrics {
@@ -66,6 +84,8 @@ export interface StatusReport {
   };
   readonly issues: IssueMetrics | null;
   readonly pulls: PullMetrics | null;
+  /** Present in github mode; null offline. */
+  readonly attribution?: AttributionCoverage | null;
   readonly ci: CiHealthMetrics | null;
   readonly delivery: DeliveryMetrics | null;
   readonly readiness: ReadinessSummary;

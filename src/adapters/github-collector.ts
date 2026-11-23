@@ -8,8 +8,12 @@ import {
   computeDeliveryMetrics,
   computeIssueMetrics,
   computePullMetrics,
+  extractClosingIssueNumbers,
   hasAgentAttribution,
+  hasAgentOpenerDisclosure,
+  isAgentIdentity,
   isAgentLogin,
+  resolveClosureOrigin,
   type RawCiRunSample,
   type RawIssueSample,
   type RawPullSample,
@@ -18,6 +22,7 @@ import type { RepoProfile } from '../shared/audit-types.ts';
 import { isRecord } from '../shared/contracts.ts';
 import type { GateIssue, GatePr } from '../shared/gate-types.ts';
 import type {
+  AttributionCoverage,
   CiHealthMetrics,
   DeliveryMetrics,
   IssueMetrics,
@@ -29,6 +34,7 @@ export interface GitHubTelemetry {
   readonly profile: RepoProfile;
   readonly issues: IssueMetrics;
   readonly pulls: PullMetrics;
+  readonly attribution: AttributionCoverage;
   readonly ci: CiHealthMetrics;
   readonly delivery: DeliveryMetrics;
   readonly openGateIssues: readonly GateIssue[];
@@ -63,6 +69,23 @@ function readLabels(obj: Record<string, unknown>): string[] {
   return names;
 }
 
+type WorkOrigin = 'agent' | 'assisted' | 'human';
+
+const ATTRIBUTION_CAVEAT =
+  'Lower bound: only the most recent 100 issues, pull requests, and default-branch commits are sampled, and agent work without an agent account, attribution trailer, commit author, or opener disclosure is counted as human. All figures are measured from GitHub records, not modeled.';
+
+function addClosingWork(
+  target: Map<number, WorkOrigin[]>,
+  text: string,
+  origin: WorkOrigin
+): void {
+  for (const num of extractClosingIssueNumbers(text)) {
+    const list = target.get(num) ?? [];
+    list.push(origin);
+    target.set(num, list);
+  }
+}
+
 export async function collectGitHubTelemetry(
   client: GitHubClient,
   baseProfile: RepoProfile,
@@ -70,7 +93,7 @@ export async function collectGitHubTelemetry(
   extraAgentLogins: readonly string[] = [],
   now = new Date()
 ): Promise<GitHubTelemetry> {
-  const [rawIssues, rawPulls, rawRuns, rawReleases, protectionRes] =
+  const [rawIssues, rawPulls, rawRuns, rawReleases, protectionRes, rawCommits] =
     await Promise.all([
       client.rest(`/repos/${repository}/issues?state=all&per_page=100`),
       client.rest(`/repos/${repository}/pulls?state=all&per_page=100`),
@@ -81,7 +104,74 @@ export async function collectGitHubTelemetry(
       client.restWithStatus(
         `/repos/${repository}/branches/${encodeURIComponent(baseProfile.defaultBranch)}/protection`
       ),
+      client.rest(
+        `/repos/${repository}/commits?sha=${encodeURIComponent(baseProfile.defaultBranch)}&per_page=100`
+      ),
     ]);
+
+  // Default-branch commits: structured authors, trailers, and squash messages.
+  const closingWork = new Map<number, WorkOrigin[]>();
+  const commitMessageBySha = new Map<string, string>();
+  let commitsSampled = 0;
+  if (Array.isArray(rawCommits)) {
+    for (const item of rawCommits) {
+      if (!isRecord(item) || !isRecord(item.commit)) continue;
+      commitsSampled += 1;
+      const message = readString(item.commit, 'message');
+      const author = isRecord(item.commit.author) ? item.commit.author : {};
+      const origin: WorkOrigin =
+        isAgentIdentity(readString(author, 'name'), readString(author, 'email')) ||
+        isAgentLogin(readLogin(item, 'author'), extraAgentLogins)
+          ? 'agent'
+          : hasAgentAttribution(message)
+            ? 'assisted'
+            : 'human';
+      commitMessageBySha.set(readString(item, 'sha'), message);
+      addClosingWork(closingWork, message, origin);
+    }
+  }
+
+  const pullSamples: RawPullSample[] = [];
+  const openGatePrs: GatePr[] = [];
+  if (Array.isArray(rawPulls)) {
+    for (const item of rawPulls) {
+      if (!isRecord(item)) continue;
+      const state = item.state === 'open' ? 'open' : 'closed';
+      const authorLogin = readLogin(item, 'user');
+      const title = readString(item, 'title');
+      const mergedAt = typeof item.merged_at === 'string' ? item.merged_at : null;
+      const mergeMessage = mergedAt
+        ? (commitMessageBySha.get(readString(item, 'merge_commit_sha')) ?? '')
+        : '';
+      // Squash merges can drop per-commit trailers: check the PR body AND the merge commit.
+      const body = `${readString(item, 'body')}${mergeMessage ? `\n\n${mergeMessage}` : ''}`;
+      if (mergedAt) {
+        const origin: WorkOrigin = isAgentLogin(authorLogin, extraAgentLogins)
+          ? 'agent'
+          : hasAgentAttribution(body)
+            ? 'assisted'
+            : 'human';
+        addClosingWork(closingWork, `${title}\n${body}`, origin);
+      }
+      pullSamples.push({
+        state,
+        createdAt: readString(item, 'created_at'),
+        mergedAt,
+        authorLogin,
+        body,
+      });
+      if (state === 'open') {
+        openGatePrs.push({
+          number: readNumber(item, 'number'),
+          title,
+          body,
+          isAgent:
+            isAgentLogin(authorLogin, extraAgentLogins) ||
+            hasAgentAttribution(body),
+        });
+      }
+    }
+  }
 
   const issueSamples: RawIssueSample[] = [];
   const openGateIssues: GateIssue[] = [];
@@ -94,50 +184,31 @@ export async function collectGitHubTelemetry(
         typeof item.closed_at === 'string' ? item.closed_at : null;
       const closedByLogin = readLogin(item, 'closed_by');
       const body = readString(item, 'body');
+      const labels = readLabels(item);
+      const work = closingWork.get(readNumber(item, 'number')) ?? [];
+      const origin =
+        state === 'closed'
+          ? resolveClosureOrigin(isAgentLogin(closedByLogin, extraAgentLogins), work)
+          : 'human';
       issueSamples.push({
         state,
         createdAt,
         closedAt,
-        closedByAgent: isAgentLogin(closedByLogin, extraAgentLogins),
-        fixReferenced: /\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\s+#\d+/i.test(
-          body
-        ),
+        closedByAgent: origin === 'agent',
+        closedAgentAssisted: origin === 'agent-assisted',
+        openedByAgent:
+          isAgentLogin(readLogin(item, 'user'), extraAgentLogins) ||
+          hasAgentOpenerDisclosure(body, labels),
+        fixReferenced:
+          work.length > 0 ||
+          /\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\s+#\d+/i.test(body),
       });
       if (state === 'open') {
         openGateIssues.push({
           number: readNumber(item, 'number'),
           title: readString(item, 'title'),
-          labels: readLabels(item),
+          labels,
           createdAt,
-        });
-      }
-    }
-  }
-
-  const pullSamples: RawPullSample[] = [];
-  const openGatePrs: GatePr[] = [];
-  if (Array.isArray(rawPulls)) {
-    for (const item of rawPulls) {
-      if (!isRecord(item)) continue;
-      const state = item.state === 'open' ? 'open' : 'closed';
-      const authorLogin = readLogin(item, 'user');
-      const body = readString(item, 'body');
-      const title = readString(item, 'title');
-      pullSamples.push({
-        state,
-        createdAt: readString(item, 'created_at'),
-        mergedAt: typeof item.merged_at === 'string' ? item.merged_at : null,
-        authorLogin,
-        body,
-      });
-      if (state === 'open') {
-        openGatePrs.push({
-          number: readNumber(item, 'number'),
-          title,
-          body,
-          isAgent:
-            isAgentLogin(authorLogin, extraAgentLogins) ||
-            hasAgentAttribution(body),
         });
       }
     }
@@ -186,8 +257,23 @@ export async function collectGitHubTelemetry(
   const agentAttributionCount = hasActivity
     ? pulls.merged_agent_prs +
       pulls.merged_assisted_prs +
-      issues.closed_by_agent
+      issues.closed_by_agent +
+      issues.closed_agent_assisted
     : null;
+
+  const attribution: AttributionCoverage = {
+    basis: 'measured',
+    lower_bound: true,
+    sources: [
+      'issues: author login, agent-filed label, opener disclosure',
+      'pull requests: author login, body trailers, squash merge commit',
+      'commits: structured author, Co-Authored-By/Assisted-by/Generated-by trailers, closing references',
+    ],
+    issues_sampled: issueSamples.length,
+    pulls_sampled: pullSamples.length,
+    commits_sampled: commitsSampled,
+    caveat: ATTRIBUTION_CAVEAT,
+  };
 
   const enrichedProfile: RepoProfile = {
     ...baseProfile,
@@ -205,6 +291,7 @@ export async function collectGitHubTelemetry(
     profile: enrichedProfile,
     issues,
     pulls,
+    attribution,
     ci,
     delivery,
     openGateIssues,
