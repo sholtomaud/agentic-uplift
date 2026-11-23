@@ -14,6 +14,7 @@ import {
   type WorkflowSummary,
 } from '../shared/audit-types.ts';
 import { isRecord } from '../shared/contracts.ts';
+import { summarizeWorkflowJobs } from '../domain/workflow-jobs.ts';
 import { discoverTestFiles, verifyRepositoryProof } from './proof-io.ts';
 
 function toPosix(filePath: string): string {
@@ -109,7 +110,41 @@ function parseWorkflowSummary(
     hasResolveGate,
     hasPermissions,
     unpinnedActions,
+    jobs: summarizeWorkflowJobs(content),
   };
+}
+
+function readTextIfExists(root: string, rel: string): string | null {
+  const full = path.join(root, rel);
+  return fs.existsSync(full) ? fs.readFileSync(full, 'utf8') : null;
+}
+
+function detectNpmIgnoreScripts(root: string): boolean {
+  const npmrc = readTextIfExists(root, '.npmrc');
+  if (npmrc && /^\s*ignore-scripts\s*=\s*true\s*$/m.test(npmrc)) return true;
+  const yarnrc = readTextIfExists(root, '.yarnrc.yml');
+  if (yarnrc && /^\s*enableScripts\s*:\s*false\s*$/m.test(yarnrc)) return true;
+  const pnpm = readTextIfExists(root, 'pnpm-workspace.yaml');
+  if (pnpm && /^\s*ignoreScripts\s*:\s*true\s*$/m.test(pnpm)) return true;
+  return false;
+}
+
+function readInstallScriptPackages(root: string): string[] {
+  const lock = readTextIfExists(root, 'package-lock.json');
+  if (!lock) return [];
+  try {
+    const parsed: unknown = JSON.parse(lock);
+    if (!isRecord(parsed) || !isRecord(parsed.packages)) return [];
+    const names = new Set<string>();
+    for (const [key, value] of Object.entries(parsed.packages)) {
+      if (!key || !isRecord(value) || value.hasInstallScript !== true) continue;
+      const idx = key.lastIndexOf('node_modules/');
+      names.add(idx === -1 ? key : key.slice(idx + 'node_modules/'.length));
+    }
+    return [...names].sort();
+  } catch {
+    return [];
+  }
 }
 
 function detectGitRepositoryName(root: string): string {
@@ -276,6 +311,8 @@ export function scanLocalRepository(
     ),
     hasUpliftConfig: fileSet.has('uplift.config.json'),
     hasZeroRuntimeDeps: readPackageZeroRuntimeDeps(root),
+    npmIgnoreScripts: detectNpmIgnoreScripts(root),
+    installScriptPackages: readInstallScriptPackages(root),
     branchProtectionEnabled: null,
     workflows,
     ciPassRate: null,
