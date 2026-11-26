@@ -10,7 +10,7 @@ Running autonomous agents against a repository requires a closed loop across bot
 
 1. **Observe & Audit (Offline or GitHub API):** Measure autonomy readiness across 6 pillars (*Proof integrity*, *Code & CI*, *Supply chain & security*, *Agent operating model*, *Issues & delivery*, *Observability & budgets*) with machine-actionable fixes and verify commands.
 2. **Seal Cryptographically (Tier 0, Language-Agnostic):** Hash Zone A (verification harness, workflows, `.githooks/`), Zone B (existing tests), and Zone C (monotonic test-count floors + skip ceiling) in `proof-lock.json` and chain commit attestations in `PROOF_CHANGELOG.md`.
-3. **Block Bad Commits Early (Layer 1 Local Hooks) & Tampered PRs Unbypassably (Layer 2 CI Gate):** Tracked `.githooks/pre-commit` and `.githooks/pre-push` stop LLMs locally; `actions/proof-gate` compares PRs against `origin/<base>:proof-lock.json` so agents cannot forge the lockfile.
+3. **Block Bad Commits Early (Layer 1 Local Hooks) & Tampered PRs Unbypassably (Layer 2 CI Gate):** Tracked `.githooks/pre-commit` and `.githooks/pre-push` stop LLMs locally, and `.githooks/commit-msg` requires every commit to reference a GitHub issue claimed for its branch ("Picking up as branch …", see `AGENTS.md`); `actions/proof-gate` compares PRs against `origin/<base>:proof-lock.json` so agents cannot forge the lockfile.
 4. **Gate Autonomous Resolution (Proof-Aware Circuit Breaker):** `actions/resolve-gate` automatically pauses autonomous agent runs if the proof seal breaks, open agent PRs reach the cap, monthly agentic spend hits budget, or default-branch CI goes red.
 5. **Query Programmatically (Agent-First JSON API):** Every CLI command supports `--json`, `query <expr>` queries structured state directly, and published Pages bundles expose `data/{status,audit,proof,gate}.json`, `schemas/*-v1.json`, and `llms.txt`.
 
@@ -22,7 +22,7 @@ Requires **Node.js 22.18+ / 24+ / 26+**:
 # Run the full 4-tier deterministic verification pipeline
 node src/cli.ts verify
 
-# Install tracked pre-commit & pre-push bash verification guardrails
+# Install tracked pre-commit, commit-msg & pre-push bash guardrails
 node src/cli.ts hooks install
 
 # Run the offline readiness audit as machine-readable JSON

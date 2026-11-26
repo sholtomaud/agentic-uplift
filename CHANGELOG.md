@@ -9,6 +9,14 @@ live separately in [`PROOF_CHANGELOG.md`](./PROOF_CHANGELOG.md).
 
 ### Added
 
+- **Issue-linked commits** (#16): a sealed `.githooks/commit-msg` hook runs
+  `issue-link check`, which blocks a commit unless its branch name or message
+  references a GitHub issue carrying a "Picking up as branch <branch>"
+  comment for the current branch. Offline or unauthenticated runs warn and
+  allow unless `UPLIFT_ISSUE_LINK_STRICT=1`. Pure policy in
+  `src/domain/issue-link.ts`, GitHub reads in
+  `src/adapters/issue-link-collector.ts`; `hooks install` now also writes
+  `commit-msg`.
 - **Secret-reachability audit checks** (#9) under *Supply chain and security*:
   `install-scripts`, `secrets-in-package-jobs`, `agent-jobs-isolated` and
   `checkout-persist-credentials`, backed by per-job workflow analysis

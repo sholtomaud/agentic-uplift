@@ -1,13 +1,18 @@
 {
   "schemaVersion": 1,
-  "rootSha256": "8afd10cd78168de741273115fbb5e370d33cd0fa609863df619cae585b30d743",
+  "rootSha256": "d66dbe682565f10e2e9586885f5bfe76b78739a16bd6e1e59c054bbffd1b2f26",
   "metricFloors": {
-    "minUnitTests": 84,
-    "minPropertyTests": 9,
+    "minUnitTests": 108,
+    "minPropertyTests": 10,
     "minArchRules": 9,
     "maxSkippedTests": 0
   },
   "files": [
+    {
+      "path": ".githooks/commit-msg",
+      "zone": "harness",
+      "sha256": "89d37d92d99caa363682f0db297869ff23a8fd7e11741b697accd8170bca46d8"
+    },
     {
       "path": ".githooks/pre-commit",
       "zone": "harness",
@@ -79,6 +84,11 @@
       "sha256": "66ced50d054e14fdd0dd6e813e24b845426db3507df75ef01f2d52f01544c13a"
     },
     {
+      "path": "tests/properties/issue-link.prop.test.ts",
+      "zone": "tests",
+      "sha256": "613e8743bcd539d7291a5e576b5500e1757ae360c1ea5961377b0b0d916302fd"
+    },
+    {
       "path": "tests/properties/proof-verifier.prop.test.ts",
       "zone": "tests",
       "sha256": "e59c6fe5390a2fc605897fe627a027d72296374dcc5f1e9c3da7d711e2f9ee3d"
@@ -144,9 +154,24 @@
       "sha256": "e74a602ebceb184fb1089b3e95a4fed839e02451a4b49df3d28f192f0a18b137"
     },
     {
+      "path": "tests/unit/github-collector-rulesets.test.ts",
+      "zone": "tests",
+      "sha256": "484f2587cdc4de4b25e4b90878019d81df9be99abcfe96a573e14325ddcf20d4"
+    },
+    {
       "path": "tests/unit/github-collector.test.ts",
       "zone": "tests",
       "sha256": "2b849f3beabb2915ec1070290047834e249872ae954278cfed389f1dbb306135"
+    },
+    {
+      "path": "tests/unit/issue-link-collector.test.ts",
+      "zone": "tests",
+      "sha256": "c5b26f806508e7e9372777cd6e8480546bfd0bbf6a8a311d597ec5fdc02d3bf8"
+    },
+    {
+      "path": "tests/unit/issue-link.test.ts",
+      "zone": "tests",
+      "sha256": "4dbedd5d7a9a4e4b6808bfb67b70f7f6ceee047bd594f610f6de8f708bd1a193"
     },
     {
       "path": "tests/unit/json-schema.test.ts",
@@ -186,7 +211,7 @@
     {
       "path": "uplift.config.json",
       "zone": "harness",
-      "sha256": "cf8dd99204b785af366feafcbf98b1138ced1cf865945d0574548f294c93343e"
+      "sha256": "80703abfffd5abbb2abd077aceeff27e5522e6f5358e03d481b945029a913d0e"
     }
   ]
 }
