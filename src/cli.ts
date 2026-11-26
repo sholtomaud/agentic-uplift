@@ -11,6 +11,12 @@ import { fileURLToPath } from 'node:url';
 import { collectEconomicsSamples } from './adapters/economics-collector.ts';
 import { createGitHubClient } from './adapters/github-client.ts';
 import { collectGitHubTelemetry } from './adapters/github-collector.ts';
+import {
+  collectIssueLookups,
+  detectCurrentBranch,
+  detectRepositorySlug,
+  resolveGitHubToken,
+} from './adapters/issue-link-collector.ts';
 import { loadPayoffHistory, readPayoffHistoryFile } from './adapters/payoff-history.ts';
 import { publishUpliftSite } from './adapters/site-publisher.ts';
 import { runArchCheck } from './core/arch-check.ts';
@@ -26,6 +32,13 @@ import {
 } from './core/proof-io.ts';
 import { buildAuditReport } from './domain/audit-engine.ts';
 import { buildEconomicsReport, resolveCostAssumptions } from './domain/economics.ts';
+import {
+  evaluateIssueLink,
+  referencedIssues,
+  shouldSkipCommitMessage,
+  type IssueLinkVerdict,
+  type IssueLookup,
+} from './domain/issue-link.ts';
 import { runAgentQuery } from './domain/query-engine.ts';
 import { evaluateResolveGate } from './domain/resolve-gate.ts';
 import type { AuditReport } from './shared/audit-types.ts';
@@ -512,6 +525,23 @@ function installGitHooks(root: string): {
     fs.chmodSync(prePushPath, 0o755);
   }
 
+  const commitMsgPath = path.join(hooksDir, 'commit-msg');
+  if (!fs.existsSync(commitMsgPath)) {
+    fs.writeFileSync(
+      commitMsgPath,
+      [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'echo "[agentic-uplift] commit-msg gate: checking issue link & branch claim..."',
+        'node src/cli.ts issue-link check --message-file "$1"',
+        '',
+      ].join('\n'),
+      { mode: 0o755 }
+    );
+  } else {
+    fs.chmodSync(commitMsgPath, 0o755);
+  }
+
   const res = spawnSync('git', ['config', 'core.hooksPath', '.githooks'], {
     cwd: root,
     encoding: 'utf8',
@@ -521,7 +551,7 @@ function installGitHooks(root: string): {
     hooksPath: '.githooks',
     message:
       res.status === 0
-        ? 'Configured git core.hooksPath=.githooks and ensured executable pre-commit & pre-push hooks.'
+        ? 'Configured git core.hooksPath=.githooks and ensured executable pre-commit, commit-msg & pre-push hooks.'
         : `Failed to set git core.hooksPath: ${res.stderr}`,
   };
 }
@@ -580,6 +610,35 @@ function writeGitHubOutputs(gate: GateReport): void {
   fs.appendFileSync(outputPath, `${lines.join('\n')}\n`);
 }
 
+async function runIssueLinkCheck(
+  root: string,
+  options: {
+    readonly message: string;
+    readonly branch: string | null;
+    readonly offline: boolean;
+    readonly strict: boolean;
+  }
+): Promise<IssueLinkVerdict> {
+  const { message, branch, offline, strict } = options;
+  const issues = referencedIssues(branch, message);
+  let lookups: IssueLookup[] | null = null;
+  if (!offline && branch && issues.length > 0 && !shouldSkipCommitMessage(message)) {
+    const slug = process.env.UPLIFT_REPOSITORY?.trim() || detectRepositorySlug(root);
+    lookups = slug
+      ? await collectIssueLookups(issues, {
+          slug,
+          token: resolveGitHubToken(),
+          apiUrl: process.env.GITHUB_API_URL?.trim() || undefined,
+        })
+      : issues.map((n) => ({
+          kind: 'unavailable' as const,
+          number: n,
+          reason: 'no GitHub origin remote to look it up in',
+        }));
+  }
+  return evaluateIssueLink({ branch, message, lookups, strict });
+}
+
 function printUsage(): void {
   console.log(
     [
@@ -596,6 +655,7 @@ function printUsage(): void {
       '  publish [--out _site] [--github] [--json]',
       '  query <expr> [--data <dir>]',
       '  hooks install [--json]',
+      '  issue-link check --message-file <path> [--branch <name>] [--offline] [--strict] [--json]',
       '  serve [--port 4173] [--dir _site]',
     ].join('\n')
   );
@@ -729,6 +789,32 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       }
     }
     return report.ok ? 0 : 1;
+  }
+
+  if (command === 'issue-link') {
+    const messageFile = readFlag(argv, '--message-file');
+    if (subcommand !== 'check' || !messageFile) {
+      console.error('Usage: issue-link check --message-file <path> [--branch <name>] [--offline] [--strict] [--json]');
+      return 2;
+    }
+    const verdict = await runIssueLinkCheck(root, {
+      message: fs.readFileSync(path.resolve(messageFile), 'utf8'),
+      branch: readFlag(argv, '--branch') ?? detectCurrentBranch(root),
+      offline: hasFlag(argv, '--offline') || process.env.UPLIFT_ISSUE_LINK_OFFLINE === '1',
+      strict: hasFlag(argv, '--strict') || process.env.UPLIFT_ISSUE_LINK_STRICT === '1',
+    });
+    if (jsonMode) {
+      console.log(JSON.stringify(verdict, null, 2));
+    } else {
+      const write = verdict.ok ? console.log : console.error;
+      const label = verdict.status === 'pass' || verdict.status === 'skipped'
+        ? verdict.status.toUpperCase()
+        : verdict.ok ? 'WARN' : 'BLOCKED';
+      write(`[agentic-uplift] issue-link ${label}: ${verdict.messages[0] ?? ''}`);
+      for (const line of verdict.messages.slice(1)) write(`  ${line}`);
+      if (!verdict.ok) write('  See "Issue-Linked Commits" in AGENTS.md.');
+    }
+    return verdict.ok ? 0 : 1;
   }
 
   if (command === 'audit') {

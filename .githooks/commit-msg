@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Layer 1 issue-link guardrail (sealed in proof-lock.json Zone A).
+# Every commit must reference a GitHub issue (branch name or message), and
+# that issue must carry a claim comment such as
+# "Picking up as branch feat/42-short-name". Runs here rather than in
+# pre-commit because only commit-msg receives the message ($1).
+# Offline or unauthenticated: warns and allows unless UPLIFT_ISSUE_LINK_STRICT=1.
+echo "[agentic-uplift] commit-msg: checking issue link & branch claim..."
+node src/cli.ts issue-link check --message-file "$1"

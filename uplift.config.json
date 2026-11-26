@@ -6,6 +6,7 @@
       ".github/CODEOWNERS",
       ".github/workflows/verify.yml",
       ".githooks/pre-commit",
+      ".githooks/commit-msg",
       ".githooks/pre-push",
       "package.json#scripts",
       "tsconfig.json",
