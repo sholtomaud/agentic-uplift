@@ -87,6 +87,13 @@ live separately in [`PROOF_CHANGELOG.md`](./PROOF_CHANGELOG.md).
 
 ### Fixed
 
+- The `branch-protection` check no longer reports "No branch protection
+  detected" for a default branch protected only by a repository ruleset.
+  The GitHub collector now also reads `/repos/{repo}/rules/branches/{branch}`
+  (readable with the default `GITHUB_TOKEN`) and counts a `pull_request` or
+  `required_status_checks` rule as protection. The legacy
+  `/branches/{branch}/protection` endpoint answers 404 for ruleset-only
+  branches, which was mapped to `missing`.
 - `deploy-pages` no longer fails with "No artifacts named github-pages were
   found" right after REST indexing (#11): the root action matches the
   uploaded `artifact_id`, settles for 5s, and retries `deploy-pages` once

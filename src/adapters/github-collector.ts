@@ -110,6 +110,20 @@ function addClosingWork(
   }
 }
 
+/** Rule types that make a ruleset count as branch protection for the audit. */
+const PROTECTING_RULE_TYPES: ReadonlySet<string> = new Set([
+  'pull_request',
+  'required_status_checks',
+]);
+
+/** True when `/rules/branches/{b}` lists a PR or required-status-check rule. */
+export function rulesetProtects(rules: unknown): boolean {
+  if (!Array.isArray(rules)) return false;
+  return rules.some(
+    (rule) => isRecord(rule) && PROTECTING_RULE_TYPES.has(readString(rule, 'type'))
+  );
+}
+
 export async function collectGitHubTelemetry(
   client: GitHubClient,
   baseProfile: RepoProfile,
@@ -117,7 +131,7 @@ export async function collectGitHubTelemetry(
   extraAgentLogins: readonly string[] = [],
   now = new Date()
 ): Promise<GitHubTelemetry> {
-  const [rawIssues, rawPulls, rawRuns, rawReleases, protectionRes, rawCommits] =
+  const [rawIssues, rawPulls, rawRuns, rawReleases, protectionRes, rawCommits, rulesRes] =
     await Promise.all([
       client.rest(`/repos/${repository}/issues?state=all&per_page=100`),
       client.rest(`/repos/${repository}/pulls?state=all&per_page=100`),
@@ -130,6 +144,12 @@ export async function collectGitHubTelemetry(
       ),
       client.rest(
         `/repos/${repository}/commits?sha=${encodeURIComponent(baseProfile.defaultBranch)}&per_page=100`
+      ),
+      // Rulesets are invisible to the legacy endpoint above (it answers 404
+      // for a ruleset-only branch); this one lists active ruleset rules and
+      // is readable with the default GITHUB_TOKEN.
+      client.restWithStatus(
+        `/repos/${repository}/rules/branches/${encodeURIComponent(baseProfile.defaultBranch)}`
       ),
     ]);
 
@@ -292,11 +312,12 @@ export async function collectGitHubTelemetry(
   );
 
   // HTTP 200 -> protected, HTTP 404 -> unprotected, HTTP 403 -> token lacks administration:read (waiting)
-  const branchProtectionEnabled = protectionRes.ok
-    ? true
-    : protectionRes.status === 404
-      ? false
-      : null;
+  const branchProtectionEnabled =
+    protectionRes.ok || rulesetProtects(rulesRes.ok ? rulesRes.data : null)
+      ? true
+      : protectionRes.status === 404
+        ? false
+        : null;
 
   const hasActivity = pulls.merged + issues.closed > 0;
   const agentAttributionCount = hasActivity
