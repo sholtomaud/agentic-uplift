@@ -1,9 +1,7 @@
 name: Agentic Uplift Control Plane
 description: >-
-  Audits repository agentic readiness and proof-lock integrity, collects SRE
-  telemetry, emits versioned JSON APIs (status, audit, proof, gate, economics + schemas +
-  llms.txt) for programmatic agent queries, and deploys a zero-dependency Web
-  Components cockpit to GitHub Pages.
+  Audit agentic readiness, verify proof-lock integrity, emit agent-queryable
+  JSON APIs, and deploy a zero-dep SRE cockpit.
 author: Sholto Maud
 branding:
   icon: shield
