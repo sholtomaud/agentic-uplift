@@ -9,6 +9,12 @@ live separately in [`PROOF_CHANGELOG.md`](./PROOF_CHANGELOG.md).
 
 ### Added
 
+- **Public launch & Marketplace readiness** (#18): tightened root `action.yml`
+  description to <= 125 characters with a unit test guarding GitHub Marketplace
+  metadata constraints (`tests/unit/action-marketplace.test.ts`), added
+  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, a live cockpit preview
+  (`docs/cockpit-preview.png`) and social preview (`docs/social-preview.png`),
+  and expanded `README.md` with complete copy-pasteable workflow examples.
 - **Issue-linked commits** (#16): a sealed `.githooks/commit-msg` hook runs
   `issue-link check`, which blocks a commit unless its branch name or message
   references a GitHub issue carrying a "Picking up as branch <branch>"
